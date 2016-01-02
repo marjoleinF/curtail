@@ -1,14 +1,21 @@
 Package: curtail
 Type: Package
-Title: A package for creation and simulation of variable-length tests
+Title: A package for creating and assessing performance of curtailed tests
 Version: 0.1
 Date: 2016-01-01
-Author: M. Fokkema
-Authors@R: c(
-    person("MArjolein", "Fokkema", email = "m.fokkema@fsw.leidenuniv.nl", role = "cre"),
-    person("MArjolein", "Fokkema", email = "m.fokkema@fsw.leidenuniv.nl", role = "aut"))
-Maintainer@R:
-    person("MArjolein", "Fokkema", email = "m.fokkema@fsw.leidenuniv.nl", role = "cre")
-Description: A package for creation and simulation of variable-length tests
+Author: Marjolein Fokkema
+Maintainer: Marjolein Fokkema
+Description: A package for creating and assessing the performance of curtailed tests. 
+  A curtailed test is a variable-length test, which allows for early stopping of item
+  administration when further items are unlikely or unable to change the final 
+  (classification) decision. The package allows for creating and assessing 
+  deterministically and stochastically (based on empirical proportions) curtailed 
+  tests. In future versions of the package, model-based stochastic curtailment may be
+  added. Curtailed tests are created by the creating look-up tables, providing a user 
+  with item-specific cut-off values for early stopping of item  administration. 
+  Curtailment performance is assessed in terms of efficiency (number of items 
+  administered to arrive at a final decision) and accuracy (concordance of the final 
+  decision based on curtailed testing with the final decision that would be obtained by
+  administering the full-length test).
 License: GPL-2
 LazyData: TRUE

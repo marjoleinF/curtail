@@ -3,7 +3,7 @@
 
 \encoding{latin1}
 
-\title{Stochastic Curtailment}
+\title{Simulates stochastic curtailment on item scores of a test}
 
 \description{
   Simulates stochastic curtailment on an existing test dataset of item scores, based on an

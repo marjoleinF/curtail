@@ -3,7 +3,7 @@
 
 \encoding{latin1}
 
-\title{Curtailment}
+\title{Simulate deterministic curtailment on item scores of a test}
 
 \description{
   Simulates deterministic curtailment on an existing dataset of item scores, based on a
@@ -50,13 +50,13 @@
 
 }
 
-%\references{
-%Fokkema M, Smits N, Kelderman H (2015).
-%  \dQuote{Detecting Treatment-Subgroup Interactions in Clustered Data
-%  with Generalized Linear Mixed-Effects Model Trees}.
-%  \url{http://EconPapers.RePEc.org/RePEc:inn:wpaper:2015-10}
-%}
-
+\references{
+  Fokkema, M., Smits, N., Kelderman, H., Carlier, I.V. & Van Hemert, A.M. (2014).
+  Curtailment: A method to reduce the length of self-report questionnaires while 
+  maintaining diagnostic accuracy. Psychiatry Research 215(2), 477-482.\cr \cr
+  Finkelman, M.D., Smits, N., Kim, W. & Riley, B. (2012). Curtailment and stochastic 
+  curtailment to shorten the CES-D. Applied Psychological Measurement, 36(8), 632-658.
+}
 %\seealso{\code{\link[lme4]{lmer}}}
 
 \examples{
