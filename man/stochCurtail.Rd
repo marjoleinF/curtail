@@ -24,8 +24,12 @@
   \item{Xstar}{Cut-off value to be used for classifying observations as 'at risk' 
   (test-score values greater than or equal to the cut-off value) or 'not at risk' 
   (test-score values less than cut-off value)}
-  \item{gamma0}{see Finkelman et al. (2012)}
-  \item{gamma1}{see Finkelman et al. (2012)}
+  \item{gamma0}{The threshold for the probability, calculated using the 'not-at-risk'
+  training observations,  that the classification decision based on the stochastically
+  curtailed version will match that of the full-length instrument.}
+  \item{gamma1}{The threshold for the probability, calculated using the 'at-risk'
+  training observations,  that the classification decision based on the stochastically
+  curtailed version will match that of the full-length instrument.}
 }
   
 \details{
