@@ -1,0 +1,14 @@
+Package: curtail
+Type: Package
+Title: A package for creation and simulation of variable-length tests
+Version: 0.1
+Date: 2016-01-01
+Author: M. Fokkema
+Authors@R: c(
+    person("MArjolein", "Fokkema", email = "m.fokkema@fsw.leidenuniv.nl", role = "cre"),
+    person("MArjolein", "Fokkema", email = "m.fokkema@fsw.leidenuniv.nl", role = "aut"))
+Maintainer@R:
+    person("MArjolein", "Fokkema", email = "m.fokkema@fsw.leidenuniv.nl", role = "cre")
+Description: A package for creation and simulation of variable-length tests
+License: GPL-2
+LazyData: TRUE
