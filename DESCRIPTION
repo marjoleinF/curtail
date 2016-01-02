@@ -3,8 +3,8 @@ Type: Package
 Title: A package for creating and assessing performance of curtailed tests
 Version: 0.1
 Date: 2016-01-01
-Author: Marjolein Fokkema
-Maintainer: Marjolein Fokkema
+Author: Marjolein Fokkema [aut, cre]
+Maintainer: Marjolein Fokkema <marjolein.fokkema@gmail.com>
 Description: A package for creating and assessing the performance of curtailed tests. 
   A curtailed test is a variable-length test, which allows for early stopping of item
   administration when further items are unlikely or unable to change the final 
