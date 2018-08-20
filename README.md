@@ -1,7 +1,7 @@
 curtail: an R package for test curtailment
 ==========================================
 
-A curtailed test is a variable-length test, which allows for early stopping of item administration when further items are unlikely or unable to change the final (classification) decision. Package curtail allows for creating and assessing deterministically and stochastically (based on empirical proportions) curtailed tests. The package allows for test curtailment through the creation of look-up tables, providing item-specific cut-off values for early stopping of item administration. In addition, the package allows for assessing efficiency (number of items administered to arrive at a final decision) and accuracy (concordance between the final decision based on curtailed and full-length test).
+A curtailed test is a variable-length test, which allows for early stopping of item administration when further items are unlikely or unable to change the final (classification) decision. Package curtail allows for creating and assessing deterministically and stochastically (based on empirical proportions) curtailed tests.
 
 Example
 -------
@@ -13,7 +13,7 @@ library(curtail)
 head(itemscores)
 ```
 
-First, we will apply deterministic curtailment on all observations, using a cut-off value of 17:
+First, we will apply deterministic curtailment on a subset of 500 observations, using a cut-off value of 17:
 
 ``` r
 tmp1 <- Curtail(itemscores[501:1000, ], Xstar = 17)
@@ -76,7 +76,7 @@ tmp2$curtailed.test.length.distribution
 
 We were able to reduce the number of items administered somewhat, at the cost of four incorrect decisions (out of 500).
 
-For example, we can also inspect test length distributions for at-risk observations separately:
+Perhaps we want to inspect test length distributions for at-risk observations separately:
 
 ``` r
 hist(tmp2$test.results$current.item[tmp2$test.results$curtailed.decision == "at risk"], 
@@ -86,7 +86,7 @@ hist(tmp2$test.results$current.item[tmp2$test.results$curtailed.decision == "at 
 
 ![](inst/README-figures/README-unnamed-chunk-7-1.png)
 
-If we want to obtain tables with the item-specific cutoff values, we can use the Table (for deterministic curtailment) function:
+If we want to obtain tables with item-specific cutoff values, we can use the Table (for deterministic curtailment) function:
 
 ``` r
 Table(itemscores, Xstar = 17)
@@ -101,7 +101,7 @@ Table(itemscores, Xstar = 17)
 #> risk        17
 ```
 
-Values NA indicate, that curtailment is not yet possible for that item and decision. For stochastic curtailment, we can employ the stochTable function:
+Values NA indicate that curtailment is not yet possible for that item and decision. For stochastic curtailment, we can employ the stochTable function:
 
 ``` r
 stochTable(itemscores, Xstar = 17)
@@ -116,7 +116,9 @@ stochTable(itemscores, Xstar = 17)
 #> risk        17
 ```
 
-Perhaps we also want to assess the accuracy of decisions based on stochastic curtailment, using leave-one-out cross validation. This can be done using the stochCurtailXval function. As this is computationally intensive, in this example we only apply the function to the first 100 observations, but normally we would apply this function to the whole dataset:
+Here we see that stochastic curtailment allows for earlier stopping of item administration than deterministic curtailment.
+
+Perhaps we want to assess the accuracy of decisions based on stochastic curtailment using leave-one-out cross validation. This can be done using the stochCurtailXval function. As this is computationally intensive, in this example we only apply the function to the first 100 observations, but normally we should apply this function to the whole dataset:
 
 ``` r
 stochCurtailXval(itemscores[1:100,], Xstar = 17)
