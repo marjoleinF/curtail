@@ -39,23 +39,19 @@
 }
 
 \value{
-  The function returns a list with the following objects:
+  The function prints accuracy estimates to the command line, and plots the 
+  curtailed test length distribution. In addition, the function invisibly returns 
+  a list with the following elements:
 
-  \item{item.scores}{Original test dataset of item scores}
-  \item{cumulative.scores}{Cumulative scores on every item for the test dataset}
-  \item{current.item}{Vector with the number of the current item (last item administered 
-  in curtailed administration) for each observation in the test dataset}
-  \item{current.score}{Vector with the current score (cumulative score for last item 
-  administered) for each observation in the test dataset}
-  \item{curtailed.test.length.distribution}{List with descriptive statistics on 
-  efficiency of the stochastically curtailed test in the test dataset: mean, standard 
-  deviation and median number of items administed}
-  \item{accuracy}{List with descriptive statistics on accuracy: number of 'at risk' and 
-  'not at risk' observations flagged as 'at risk' and 'not at risk' after application 
-  of stochastic curtailment in the test dataset}
-
+  \item{test.results}{data.frame with columns full.lenght.decision (classification 
+  decsion according to full-length test); curtailed.decision (classification decision
+  according to curtailed test administration); current.item (item at which testing
+  was halted); current.score (cumulative testscore at item at which testing was halted).}
+  \item{curtailed.test.length.distribution}{Descriptive statistics of number of items
+  administered and number of tests curtailed.}
+  \item{accuracy}{Confusion matrix of full-length and curtailed test classification 
+  decisions.}
 }
-
 
 \examples{\donttest{
   ## obtain a test and training dataset
