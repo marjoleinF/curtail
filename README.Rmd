@@ -81,3 +81,11 @@ Perhaps we want to assess the accuracy of decisions based on stochastic curtailm
 ```{r}
 stochCurtailXval(itemscores[1:100,], Xstar = 17)
 ```
+
+## References
+
+Finkelman, M.D., Smits, N., Kim, W. & Riley, B. (2012). Curtailment and stochastic curtailment to shorten the CES-D. Applied Psychological Measurement, 36(8), 632-658.
+
+Fokkema, M., Smits, N., Finkelman, M. D., Kelderman, H., & Cuijpers, P. (2014). Curtailment: A method to reduce the length of self-report questionnaires while maintaining diagnostic accuracy. Psychiatry Research 215, 477-482. 
+
+Fokkema, M., Smits, N., Kelderman, H., Carlier, I.V. & Van Hemert, A.M. (2014). Combining decision trees and stochastic curtailment for assessment length reduction of test batteries used for classification. Applied Psychological Measurement, 38(1), 3-17.
