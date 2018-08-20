@@ -3,7 +3,7 @@
 
 \encoding{latin1}
 
-\title{Simulate stochastic curtailment using k-fold CV}
+\title{Simulate stochastic curtailment using leave-one-out CV}
 
 \description{
   Simulates stochastic curtailment on an existing dataset of item scores, using 
@@ -13,7 +13,8 @@
 }
 
 \usage{
-  stochCurtailXval(dataset, Xstar, gamma0=.95, gamma1=.95)
+  stochCurtailXval(dataset, Xstar, gamma0 = .95, gamma1 = .95, plot = TRUE, 
+  verbose = FALSE)
 }
 
 \arguments{
@@ -27,6 +28,8 @@
   \item{gamma1}{The threshold for the probability, calculated using the 'at-risk'
   training observations,  that the classification decision based on the stochastically
   curtailed version will match that of the full-length instrument.}
+  \item{plot}{Should test length distribution be plotted?}
+  \item{verbose}{Should progress be plotted to the command line?}
 }
   
 \details{
@@ -34,18 +37,9 @@
 }
 
 \value{
-  The function returns an augmented dataset with the following variables: 
-  
-  Variables for all but the last item (therefore, variable names consist of
-  the following characters, appended with the item number):
-  \item{item}{the original item scores}
-  \item{test}{the cumalative sum score for the items up to this number}
-  \item{Pkplus}{see Finkelman et al. (2012)}
-  \item{Pkmin}{see Finkelman et al. (2012)}
-
-  Further, the following variables are included:
-  \item{plusflag}{for internal calculations}
-  \item{minflag}{for internal calculations}
+  The function prints a confusion matrices with classification accuracy to the command line, 
+  and plots the test length distribution. Invisibly, the function invisibly returns an 
+  augmented dataset with the original item scores and: 
   \item{SCrisk}{whether the observation is flagged as 'at risk' in curtailed test 
   administration}
   \item{SCnorisk}{whether the observation is flagged as 'not at risk' in curtailed test 
@@ -57,21 +51,21 @@
 }
 
 \references{
-  Fokkema, M., Smits, N., Kelderman, H., Carlier, I.V. & Van Hemert, A.M. (2014).
+  Fokkema, M., Smits, N., Finkelman, M. D., Kelderman, H., & Cuijpers, P. (2014). 
   Curtailment: A method to reduce the length of self-report questionnaires while 
-  maintaining diagnostic accuracy. Psychiatry Research 215(2), 477-482.\cr \cr
+  maintaining diagnostic accuracy. Psychiatry Research 215, 477-482. \cr \cr
+  Fokkema, M., Smits, N., Kelderman, H., Carlier, I.V. & Van Hemert, A.M. (2014).
+  Combining decision trees and stochastic curtailment for assessment length 
+  reduction of test batteries used for classification. Applied Psychological 
+  Measurement, 38(1), 3-17.\cr \cr
   Finkelman, M.D., Smits, N., Kim, W. & Riley, B. (2012). Curtailment and stochastic 
-  curtailment to shorten the CES-D. Applied Psychological Measurement, 36(8), 632-658.
+  curtailment to shorten the CES-D. Applied Psychological Measurement, 36(8), 632-658.\cr \cr
 }
 
-%\seealso{\code{\link[lme4]{lmer}}}
-
-\examples{
-  \dontrun{
+\examples{\donttest{
     tmp <- stochCurtailXval(itemscores, 19, gamma0=.95, gamma1=.95) 
-    table(tmp$test20>=19, tmp$SCrisk) # accuray
-    table(tmp$test20>=19, tmp$SCnorisk) # accuracy
-    table(tmp$currit); mean(tmp$currit); sd(tmp$currit) # efficiency
+    ## Recreate confusion matrix manually:
+    table(tmp$SCrisk, rowSums(itemscores) >= 19)
   }
 }
 

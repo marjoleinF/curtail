@@ -25,9 +25,9 @@
 }
   
 \details{
-  Note that either dataset.train argument needs to be specified, or the nitems, highest and   lowest arguments. 
+  Note that either dataset.train needs to be specified, or nitems, highest and lowest. 
   
-  The code is still under development and might change in future versions.
+  The code is still under development and may change in future versions.
 }
 
 \value{
@@ -36,13 +36,16 @@
 }
 
 \references{
-  Fokkema, M., Smits, N., Kelderman, H., Carlier, I.V. & Van Hemert, A.M. (2014).
+  Fokkema, M., Smits, N., Finkelman, M. D., Kelderman, H., & Cuijpers, P. (2014). 
   Curtailment: A method to reduce the length of self-report questionnaires while 
-  maintaining diagnostic accuracy. Psychiatry Research 215(2), 477-482.\cr \cr
+  maintaining diagnostic accuracy. Psychiatry Research 215, 477-482. \cr \cr
+  Fokkema, M., Smits, N., Kelderman, H., Carlier, I.V. & Van Hemert, A.M. (2014).
+  Combining decision trees and stochastic curtailment for assessment length 
+  reduction of test batteries used for classification. Applied Psychological 
+  Measurement, 38(1), 3-17.\cr \cr
   Finkelman, M.D., Smits, N., Kim, W. & Riley, B. (2012). Curtailment and stochastic 
-  curtailment to shorten the CES-D. Applied Psychological Measurement, 36(8), 632-658.
+  curtailment to shorten the CES-D. Applied Psychological Measurement, 36(8), 632-658.\cr \cr
 }
-%\seealso{\code{\link[lme4]{lmer}}}
 
 \examples{
   Table(itemscores, 19)

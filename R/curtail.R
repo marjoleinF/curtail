@@ -1,162 +1,209 @@
-Curtail <- function(dataset.test, Xstar, highest=NULL, lowest=NULL) {
+Curtail <- function(dataset.test, Xstar, highest = NULL, lowest = NULL, 
+                    plot = TRUE) {
 
-  # Define dataset etc.
+  ## Define dataset etc.:
   nitems <- dim(dataset.test)[2]
   nobs <- dim(dataset.test)[1]
-  if(is.null(highest)) {highest <- max(dataset.test, na.rm=T)}
-  if(is.null(lowest)) {lowest <- min(dataset.test, na.rm=T)}
-
-  # testdata: calculate 'current' testscore for every participant:
-  dataset.test[paste("test",1:nitems,sep="")] <- NA
-  dataset.test[paste("test",1,sep="")] <- dataset.test[1] # testscore after first item is not a sum, but itemscore of first item
-  for (i in 2:nitems) {
-    dataset.test[paste("test",i,sep="")] <- rowSums(dataset.test[,1:i]) }
-
-  # compute boundaries
-  risk.boundaries <- rep(NA, times = nitems)
-  for (i in 1:nitems) {
-    risk.boundaries[i] <- Xstar - (nitems-i)*lowest
-  }
-  norisk.boundaries <- rep(NA, times = nitems)
-  for (i in 1:nitems) {
-    norisk.boundaries[i] <- (Xstar-1) - (nitems-i)*highest
+  if (is.null(highest)) highest <- max(dataset.test, na.rm = TRUE)
+  if (is.null(lowest)) lowest <- min(dataset.test, na.rm = TRUE)
+  
+  ## Compute boundaries:
+  risk.boundaries <- norisk.boundaries <- rep(NA, times = nitems)
+  for (j in 1:nitems) {
+    risk.boundaries[j] <- Xstar - (nitems-j) * lowest
+    norisk.boundaries[j] <- (Xstar-1) - (nitems-j) * highest
   }
 
-  dataset.test$currit <- NA
-  dataset.test$currts <- NA
-  dataset.test$Crisk <- NA
-  dataset.test$Cnorisk <- NA
+  ## Calculate cumulative testscores:
+  dataset.test[paste0("test", 1)] <- dataset.test[ , 1] # testscore after first item equals itemscore of first item
+  for (j in 2:nitems) {
+    dataset.test[ , paste0("test", j)] <- rowSums(dataset.test[ , 1:j]) 
+  }
 
+  ## Perform the curtailment:
+  dataset.test$currit <- dataset.test$currts <- NA
+  dataset.test$Crisk <- dataset.test$Cnorisk <- NA
   for (i in 1:nobs) {
     for (j in 1:nitems) {
-      if ((dataset.test[i,paste("test",j,sep="")] >= risk.boundaries[j]) & is.na(dataset.test$Crisk[i]))
-        (dataset.test$currit[i]<-j) &  (dataset.test$currts[i]<-dataset.test[i,paste("test",j,sep="")]) & (dataset.test$Crisk[i] <- T)
+      if (is.na(dataset.test$Cnorisk[i]) && is.na(dataset.test$Crisk[i])) {
+        if (dataset.test[i, paste0("test", j)] >= risk.boundaries[j]) {
+          dataset.test$currit[i] <- j
+          dataset.test$currts[i] <- dataset.test[i, paste0("test", j)]
+          dataset.test$Crisk[i] <- TRUE
+        } else if (dataset.test[i, paste0("test", j)] <= norisk.boundaries[j]) {
+          dataset.test$currit[i] <- j
+          dataset.test$currts[i] <- dataset.test[i, paste0("test", j)] 
+          dataset.test$Cnorisk[i] <- TRUE
+        }
+      }
     }
   }
+  dataset.test$Crisk[is.na(dataset.test$Crisk)] <- FALSE
+  dataset.test$Cnorisk[is.na(dataset.test$Cnorisk)] <- FALSE
 
-  for (i in 1:nobs) {
-    for (j in 1:nitems) {
-      if ((dataset.test[i,paste("test",j,sep="")] <= norisk.boundaries[j]) & is.na(dataset.test$Cnorisk[i]))
-        (dataset.test$currit[i]<-j) &  (dataset.test$currts[i]<-dataset.test[i,paste("test",j,sep="")]) & (dataset.test$Cnorisk[i] <- T)
-    }
-  }
-
-
-  listofdata <- list(
-    item.scores = dataset.test[,1:nitems],
-    cumulative.scores = dataset.test[,(nitems+1):(nitems+nitems)],
-    current.item = dataset.test[,(nitems*2)+1],
-    current.score = dataset.test[,(nitems*2)+2],
+  ## Return results:
+  accuracy = list(
+    risk = table(dataset.test$Crisk, dataset.test[ , paste0("test", nitems)] >= Xstar, 
+                 useNA = "ifany", 
+                 dnn = c("curtailed: flagged 'risk'","full length: 'at risk'")),
+    no.risk = table(dataset.test$Crisk, dataset.test[ , paste0("test", nitems)] < Xstar, 
+                    useNA = "ifany", 
+                    dnn = c("curtailed: flagged 'no risk'","full length: 'not at risk'")))
+  
+  out <- list(
+    item.scores = dataset.test[ , 1:nitems],
+    cumulative.scores = dataset.test[ , (nitems+1):(nitems+nitems)],
+    current.item = dataset.test$currit,
+    current.score = dataset.test$currts,
     curtailed.test.length.distribution = list(
-      mean = mean(dataset.test[,(nitems*2)+1]),
-      standard.deviation= sd(dataset.test[,(nitems*2)+1]),
-      median = median(dataset.test[,(nitems*2)+1]),
-      proportion.curtailed = table(dataset.test[,(nitems*2)+1] < nitems)[2] / sum(table(dataset.test[,(nitems*2)+1] < nitems))),
-    accuracy = list(
-      risk = table(dataset.test[,(nitems*2+3)], dataset.test[,(nitems*2)] >= Xstar, useNA="ifany", dnn=c("curtailed: flagged 'risk'","full length: 'at risk'")),
-      no.risk = table(dataset.test[,(nitems*2+4)], dataset.test[,(nitems*2)] < Xstar, useNA="ifany", dnn=c("curtailed: flagged 'no risk'","full length: 'not at risk'")))
+      mean = mean(dataset.test$currit),
+      standard.deviation = sd(dataset.test$currit),
+      median = median(dataset.test$currit),
+      proportion.curtailed = sum(dataset.test[,(nitems*2)+1] < nitems) / nobs),
+    accuracy = accuracy
   )
 
-  return(listofdata)
+  print(accuracy)
+  if (plot) {
+    hist(dataset.test$currit, main = "Test lengths", 
+         xlab = "Number of items administered")
+  }
+  invisible(out)
 }
 
 
+stochCurtail <- function(dataset.train, dataset.test = NULL, Xstar, 
+                         gamma0 = .95, gamma1 = .95, plot = TRUE) {
 
-
-
-
-
-
-
-stochCurtail <- function(dataset.train, dataset.test = NULL, Xstar, gamma0=.95, gamma1=.95) 
-{
-
-  # Define dataset etc.
-  T <- dataset.train
+  ## Define dataset etc:
+  if (is.null(dataset.test)) dataset.test <- dataset.train
   nitems <- dim(dataset.test)[2]
   nobs <- dim(dataset.test)[1]
-  if(is.null(dataset.test)) dataset.test <- dataset.train
 
-  # trainingdata: calculate restscores for every respondent, and every item
-  T[paste("rest",1:(nitems-1),sep="")] <- NA
+  ## Calculate restscores in training data:
+  dataset.train[, paste0("rest", 1:(nitems-1))] <- NA
   for (i in 2:(nitems-1)) {
-    T[,(nitems-1)+i] <- rowSums(T[,i:nitems]) }
-  T[paste("rest",nitems-1,sep="")] <- T[,nitems] # restscore after second last item is not a sum, but itemscore of last item
-
-  # testdata: calculate 'current' testscore for every participant:
-  dataset.test[paste("test",1:nitems,sep="")] <- NA
-  dataset.test[paste("test",1,sep="")] <- dataset.test[1] # testscore after first item is not a sum, but itemscore of first item
+    dataset.train[ , (nitems-1) + i] <- rowSums(dataset.train[ , i:nitems]) 
+  }
+  dataset.train[, paste0("rest", nitems - 1)] <- dataset.train[ , nitems] # restscore after second last item equals itemscore of last item
+  
+  ## Calculate cumulative testscores in test data:
+  dataset.test[paste0("test", 1)] <- dataset.test[ , 1] # testscore after first item equals itemscore of first item
   for (i in 2:nitems) {
-    dataset.test[paste("test",i,sep="")] <- rowSums(dataset.test[,1:i]) }
+    dataset.test[ , paste0("test", i)] <- rowSums(dataset.test[ , 1:i]) 
+  }
+  
+  # Calculate total score for every participant in training data:
+  dataset.train[ , paste0("test", nitems)] <- rowSums(dataset.train[ , 1:nitems])
 
-  # trainingdata: calculate total score for every participant:
-  T[paste("test",nitems,sep="")] <- rowSums(T[,1:nitems])
+  # split dataset into plus (above cutoff) and min (below cutoff dataset)
+  T_plus <- dataset.train[dataset.train[paste0("test", nitems)] >= Xstar, ]
+  T_min <- dataset.train[dataset.train[paste0("test", nitems)] < Xstar, ]
 
-  # split dataset into plus (above cutoff) and min (below cutoff part)
-  Tplus <- T[T[paste("test",nitems,sep="")]>=Xstar,]
-  Tmin <- T[T[paste("test",nitems,sep="")]<Xstar,]
-
-  # Pkplus
-  for (i in 1:(nitems-1)) {     # for every item i, except last
-    for (j in 1:(nobs)) {      # for every person j
-      dataset.test[j,paste("Pkplus",i,sep="")] <-     # Pkplus for item i, person j should be
-        mean(Tplus[,paste("rest",i,sep="")] + dataset.test[j,paste("test",i,sep="")] >= Xstar)
-      # the proportion of restscores in Tplus, which will exceed Xstar when added to person j's testscore on item i.
+  ## Calculate Pkplus and Pkmin (prop. of restscores in T_plus resp T_min 
+  ## yielding a total score >= Xstar when added to person j's testscore on 
+  ## item i):
+  for (i in 1:(nitems-1)) {
+    for (j in 1:(nobs)) {
+      dataset.test[j, paste0("Pkplus", i)] <-
+        mean(T_plus[ , paste0("rest", i)] + dataset.test[j, paste0("test", i)] >= Xstar)
+      dataset.test[j, paste0("Pkmin", i)] <-
+        mean(T_min[ , paste0("rest", i)] + dataset.test[j, paste0("test", i)] >= Xstar)
     }
   }
 
-  # Pkmin
-  for (i in 1:(nitems-1)) {     # for every item i, except last
-    for (j in 1:(nobs)) {      # for every person j
-      dataset.test[j,paste("Pkmin",i,sep="")] <-     # Pkplus for item i, person j should be
-        mean(Tmin[,paste("rest",i,sep="")] + dataset.test[j,paste("test",i,sep="")] >= Xstar)
-      # the proportion of restscores in Tmin, which will exceed Xstar when added to person j's testscore on item i.
-    }
-  }
-
-  # for every row, pkplus should be checked for being >=gamma1 and <=1-gamma0
-  for (i in 1:(nobs)) {
-    dataset.test$plusflag1[i] <- which(dataset.test[i,paste("Pkplus",1:(nitems-1),sep="")]>=gamma1)[1]
-    dataset.test$plusflag0[i] <- which(dataset.test[i,paste("Pkplus",1:(nitems-1),sep="")]<=1-gamma0)[1]
-  }
-
-  # for every row, pkmin should be checked for being >=gamma1 and <=1-gamma0
-  for (i in 1:(nobs)) {
-    dataset.test$minflag1[i] <- which(dataset.test[i,paste("Pkmin",1:(nitems-1),sep="")]>=gamma1)[1]
-    dataset.test$minflag0[i] <- which(dataset.test[i,paste("Pkmin",1:(nitems-1),sep="")]<=1-gamma0)[1]
-  }
-
-  dataset.test$SCrisk <- !is.na(dataset.test$minflag1) & !is.na(dataset.test$plusflag1)
-  dataset.test$SCrisk[dataset.test[paste("test",nitems,sep="")] >= Xstar & is.na(dataset.test$minflag1)] <- TRUE # in case no curtailment took place
-  dataset.test$SCnorisk <- !is.na(dataset.test$plusflag0)  & !is.na(dataset.test$minflag0)
-  dataset.test$SCnorisk[dataset.test[paste("test",nitems,sep="")] < Xstar & is.na(dataset.test$plusflag0)] <- TRUE # in case no curtailment took place
-
-  dataset.test$currit <- NA  # for tracking the current item number
-  dataset.test$currit[!is.na(dataset.test$minflag1)] <- dataset.test$minflag1[!is.na(dataset.test$minflag1)]
-  dataset.test$currit[!is.na(dataset.test$plusflag0)] <- dataset.test$plusflag0[!is.na(dataset.test$plusflag0)]
-  dataset.test$currit[is.na(dataset.test$currit)] <- nitems # in case no curtailment took place
-
-  dataset.test$currts <- NA  # for tracking the current test score
+  ## Check for every observations whether pkplus and pkmin are >= gamma1 and <= 1-gamma0:
   for (i in 1:nobs) {
-    dataset.test[i,"currts"] <- dataset.test[i,paste("test", dataset.test[i,"currit"], sep="")]
+    #dataset.test$plusflag1[i] <- which(dataset.test[i, paste0("Pkplus", 1:(nitems-1))] >= gamma1)[1]
+    ## plusflag1 corresponds to the first item where the proportion of at risk decisions in the at risk dataset
+    ## equals or exceeds gamma1 
+    #dataset.test$plusflag0[i] <- which(dataset.test[i, paste0("Pkplus", 1:(nitems-1))] <= 1-gamma0)[1]
+    ## plusflag0 corresponds to the first item where the proportion of at risk decisions in the at risk dataset
+    ## equals or is lower than 1 minus gamma0
+    #dataset.test$minflag1[i] <- which(dataset.test[i, paste0("Pkmin", 1:(nitems-1))] >= gamma1)[1]
+    ## minflag1 corresponds to the first item where the proportion of at risk decisions in the non-at-risk dataset
+    ## equals or exceeds gamma1
+    #dataset.test$minflag0[i] <- which(dataset.test[i, paste0("Pkmin", 1:(nitems-1))] <= 1-gamma0)[1]
+    ## minflag0 corresponds to the first item where the proportion of at risk decisions in the non-at-risk dataset
+    ## equals or is lower than 1 minus gamma0
+    dataset.test$riskflag[i] <- which(dataset.test[i, paste0("Pkplus", 1:(nitems-1))] >= gamma1 &
+                                         dataset.test[i, paste0("Pkmin", 1:(nitems-1))] >= gamma1)[1]
+    dataset.test$noriskflag0[i] <- which(dataset.test[i, paste0("Pkplus", 1:(nitems-1))] <= 1-gamma0 &
+                                           dataset.test[i, paste0("Pkmin", 1:(nitems-1))] <= 1-gamma0)[1]
   }
+  
+  #dataset.test$SCrisk <- !is.na(dataset.test$minflag1) & !is.na(dataset.test$plusflag1)
+  #dataset.test$SCnorisk <- !is.na(dataset.test$plusflag0) & !is.na(dataset.test$minflag0)
+  #dataset.test$SCrisk[dataset.test[paste0("test", nitems)] >= Xstar & 
+  #                      is.na(dataset.test$minflag1) & 
+  #                      is.na(dataset.test$plusflag0)] <- TRUE # in case no curtailment took place
+  #dataset.test$SCnorisk[dataset.test[paste0("test", nitems)] < Xstar & 
+  #                        is.na(dataset.test$plusflag0) & 
+  #                        is.na(dataset.test$minflag1)] <- TRUE # in case no curtailment took place
+  dataset.test$currit <- dataset.test$currts <- dataset.test$SCrisk <- dataset.test$SCnorisk <- NA
+  for(j in 1:nobs) {
+    if (is.na(dataset.test$riskflag[j]) && is.na(dataset.test$noriskflag[j])) {
+      ## Then no curtailment was performed. Get decision based on full test score and set currit <- nitems
+      dataset.test$SCrisk[j] <- dataset.test[j, paste0("test", nitems)] >= Xstar
+      dataset.test$SCnorisk[j] <- dataset.test[j, paste0("test", nitems)] < Xstar
+      dataset.test$currit[j] <- nitems
+      dataset.test$currts[j] <- dataset.test[j, paste0("test", nitems)]
+    } else if (is.na(dataset.test$riskflag[j])) {
+      ## Then take noriskflag
+      dataset.test$SCrisk[j] <- FALSE
+      dataset.test$SCnorisk[j] <- TRUE
+      dataset.test$currit[j] <- dataset.test$noriskflag[j]
+      dataset.test$currts[j] <- dataset.test[j, paste0("item", dataset.test$noriskflag[j])]
+    } else if (is.na(dataset.test$noriskflag[j])) {
+      ## Then take riskflag
+      dataset.test$SCrisk[j] <- TRUE
+      dataset.test$SCnorisk[j] <- FALSE
+      dataset.test$currit[j] <- dataset.test$riskflag[j]
+      dataset.test$currts[j] <- dataset.test[j, paste0("item", dataset.test$riskflag[j])]
+    } else {
+      ## Them both riskflag and noriskflag. Take whichever value is lowest
+      risk <- dataset.test$risk[j] <= dataset.test$norisk[j] 
+      dataset.test$SCrisk[j] <- risk
+      dataset.test$SCnorisk[j] <- !risk
+      dataset.test$currit[j] <- ifelse(risk, dataset.test$riskflag[j], dataset.test$riskflag[j])
+      dataset.test$currts[j] <- ifelse(risk,
+                                       dataset.test[j, paste0("item", dataset.test$riskflag[j])],
+                                       dataset.test[j, paste0("item", dataset.test$noriskflag[j])])
+    }
+  }
+    
+  #dataset.test$currit <- NA  # tracking the current item number
+  #dataset.test$currit[!is.na(dataset.test$minflag1)] <- dataset.test$minflag1[!is.na(dataset.test$minflag1)]
+  #dataset.test$currit[!is.na(dataset.test$plusflag0)] <- dataset.test$plusflag0[!is.na(dataset.test$plusflag0)]
+  #dataset.test$currit[is.na(dataset.test$currit)] <- nitems # in case no curtailment took place
 
-  listofdata <- list(
-    item.scores = dataset.test[,1:nitems],
-    cumulative.scores = dataset.test[,(nitems+1):(nitems+nitems)],
-    current.item = dataset.test[,"currit"],
-    current.score = dataset.test[,"currts"],
-    curtailed.test.length.distribution = list(
-      mean = mean(dataset.test[,"currit"]),
-      standard.deviation= sd(dataset.test[,"currit"]),
-      median = median(dataset.test[,"currit"]),
-      proportion.curtailed = table(dataset.test[,"currit"] < nitems)[2] / sum(table(dataset.test[,"currit"] < nitems))),
-    accuracy = list(
-      risk = table(dataset.test[,"SCrisk"], dataset.test[,(nitems*2)] >= Xstar, useNA="ifany", dnn=c("curtailed: flagged 'risk'","full length: 'at risk'")),
-      no.risk = table(dataset.test[,"SCnorisk"], dataset.test[,(nitems*2)] < Xstar, useNA="ifany", dnn=c("curtailed: flagged 'no risk'","full length: 'not at risk'")))
+  #dataset.test$currts <- NA  # for tracking the current test score
+  #for (i in 1:nobs) {
+  #  dataset.test[i, "currts"] <- dataset.test[i, paste0("test", dataset.test[i, "currit"])]
+  #}
+
+  accuracy <- list(
+    risk = table(dataset.test[,"SCrisk"], dataset.test[,(nitems*2)] >= Xstar, 
+                 useNA="ifany", 
+                 dnn = c("curtailed: flagged 'risk'","full length: 'at risk'")),
+    no.risk = table(dataset.test[,"SCnorisk"], dataset.test[,(nitems*2)] < Xstar, 
+                    useNA="ifany", 
+                    dnn = c("curtailed: flagged 'no risk'","full length: 'not at risk'")))
+  
+  out <- data.frame(
+    decision.full = ifelse(dataset.test[ , paste0("test", nitems)] >= Xstar, "at risk", "not at risk"),
+    SCrisk = dataset.test$SCrisk,
+    SCnorisk = dataset.test$SCnorisk,
+    current.item = dataset.test$currit,
+    current.score = dataset.test$currts
   )
-
-  return(listofdata)
+  
+  print(accuracy)
+  if (plot) {
+    hist(dataset.test$currit, main = "Test lengths", 
+         xlab = "Number of items administered")
+  }
+  invisible(out)
 
 }
 
@@ -168,60 +215,56 @@ stochCurtail <- function(dataset.train, dataset.test = NULL, Xstar, gamma0=.95, 
 
 
 
-stochCurtailXval <- function(dataset, Xstar, gamma0=.95, gamma1=.95) {
+stochCurtailXval <- function(dataset, Xstar, gamma0 = .95, gamma1 = .95, plot = TRUE, verbose = FALSE) {
 
-  # Define dataset etc.
-  T <- dataset
+  ## Define dataset etc:
   nitems <- dim(dataset)[2]
   nobs <- dim(dataset)[1]
 
-  # trainingdata: calculate restscores for every respondent, and every item
-  T[paste("rest",1:(nitems-1),sep="")] <- NA
+  ## Calculate restscores:
+  dataset[ , paste0("rest", 1:(nitems-1))] <- NA
   for (i in 2:(nitems-1)) {
-    T[,(nitems-1)+i] <- rowSums(T[,i:nitems]) }
-  T[paste("rest",nitems-1,sep="")] <- T[,nitems] # restscore after second last item is not a sum, but itemscore of last item
+    dataset[ , (nitems-1)+i] <- rowSums(dataset[ , i:nitems]) 
+  }
+  dataset[ , paste0("rest", nitems-1)] <- dataset[ , nitems] # restscore after second last item equals itemscore of last item
 
-  # testdata: calculate 'current' testscore for every participant:
-  dataset[paste("test",1:nitems,sep="")] <- NA
-  dataset[paste("test",1,sep="")] <- dataset[1] # testscore after first item is not a sum, but itemscore of first item
+  ## Calculate cumulative scores:
+  dataset[paste0("test", 1:nitems)] <- NA
+  dataset[paste0("test", 1)] <- dataset[1] # testscore after first item equals itemscore of first item
   for (i in 2:nitems) {
-    dataset[paste("test",i,sep="")] <- rowSums(dataset[,1:i]) }
+    dataset[paste0("test", i)] <- rowSums(dataset[ , 1:i]) 
+  }
 
-  # trainingdata: calculate total score for every participant:
-  T[paste("test",nitems,sep="")] <- rowSums(T[,1:nitems])
-
-  # Pkplus
-  for (i in 1:(nitems-1)) {     # for every item i, except last
-    for (j in 1:(nobs)) {      # for every person j
-      Tminj <-T[-j,]          # exclude person j from dataset
-      Tplus <- Tminj[Tminj[paste("test",nitems,sep="")]>=Xstar,]  # select above cutoff rows
-      dataset[j,paste("Pkplus",i,sep="")] <-     # Pkplus for item i, person j should be
-        mean(Tplus[,paste("rest",i,sep="")] + dataset[j,paste("test",i,sep="")] >= Xstar)
-      # the proportion of restscores of item i in Tplus, which will exceed Xstar when added to person j's testscore on item i.
+  # Get Pkplus and Pkmin:
+  dataset[, paste0("Pkplus", 1:(nitems-1))] <- NA
+  dataset[, paste0("Pkmin", 1:(nitems-1))] <- NA
+  #for (i in 1:(nitems-1)) {
+    for (j in 1:nobs) {
+      if (verbose) print(paste("observation", j))
+      traindata <- dataset[-j, ] # exclude person j from dataset
+      T_plus <- traindata[traindata[paste0("test", nitems)] >= Xstar, ] # select above-cutoff rows
+      #dataset[j, paste0("Pkplus", i)] <-
+      #  mean(T_plus[ , paste0("rest", i)] + dataset[j, paste0("test", i)] >= Xstar)
+      dataset[j, paste0("Pkplus", 1:(nitems-1))] <- rowMeans(sapply(apply(
+        T_plus[ , paste0("rest", 1:(nitems-1))], 1, `+`, 
+        dataset[j, paste0("test", 1:(nitems-1))]), 
+        `>=`, Xstar))
+      T_min <- traindata[traindata[paste0("test", nitems)] < Xstar, ]  # select below-cutoff rows
+      #dataset[j, paste0("Pkmin", i)] <-
+      #  mean(T_min[ , paste0("rest", i)] + dataset[j, paste0("test", i)] >= Xstar)
+      dataset[j, paste0("Pkmin", 1:(nitems-1))] <- rowMeans(sapply(apply(
+        T_min[ , paste0("rest", 1:(nitems-1))], 1, `+`, 
+        dataset[j, paste0("test", 1:(nitems-1))]), 
+        `>=`, Xstar))
     }
-  }
-
-  # Pkmin
-  for (i in 1:(nitems-1)) {     # for every item i, except last
-    for (j in 1:(nobs)) {      # for every person j
-      Tminj <-T[-j,]          # exclude person j from dataset
-      Tmin <- Tminj[Tminj[paste("test",nitems,sep="")]<Xstar,]  # select below cutoff rows
-      dataset[j,paste("Pkmin",i,sep="")] <-     # Pkplus for item i, person j should be
-        mean(Tmin[,paste("rest",i,sep="")] + dataset[j,paste("test",i,sep="")] >= Xstar)
-      # the proportion of restscores in Tmin, which will exceed Xstar when added to person j's testscore on item i.
-    }
-  }
-
-  # for every row, pkplus should be checked for being >=gamma1 and <=1-gamma0
-  for (i in 1:(nobs)) {
-    dataset$plusflag1[i] <- which(dataset[i,paste("Pkplus",1:(nitems-1),sep="")]>=gamma1)[1]
-    dataset$plusflag0[i] <- which(dataset[i,paste("Pkplus",1:(nitems-1),sep="")]<=1-gamma0)[1]
-  }
-
-  # for every row, pkmin should be checked for being >=gamma1 and <=1-gamma0
-  for (i in 1:(nobs)) {
-    dataset$minflag1[i] <- which(dataset[i,paste("Pkmin",1:(nitems-1),sep="")]>=gamma1)[1]
-    dataset$minflag0[i] <- which(dataset[i,paste("Pkmin",1:(nitems-1),sep="")]<=1-gamma0)[1]
+  #}
+  
+  # for every row, pkplus and pkmin should be checked for being >=gamma1 and <=1-gamma0
+  for (i in 1:nobs) {
+    dataset$plusflag1[i] <- which(dataset[i, paste0("Pkplus", 1:(nitems-1))] >= gamma1)[1]
+    dataset$plusflag0[i] <- which(dataset[i, paste0("Pkplus", 1:(nitems-1))] <= 1-gamma0)[1]
+    dataset$minflag1[i] <- which(dataset[i, paste0("Pkmin",1:(nitems-1))] >= gamma1)[1]
+    dataset$minflag0[i] <- which(dataset[i, paste0("Pkmin",1:(nitems-1))] <= 1-gamma0)[1]
   }
 
   dataset$SCrisk <- !is.na(dataset$minflag1) & !is.na(dataset$plusflag1)
@@ -239,8 +282,20 @@ stochCurtailXval <- function(dataset, Xstar, gamma0=.95, gamma1=.95) {
     dataset[i,"currts"] <- dataset[i,paste("test", dataset[i,"currit"], sep="")]
   }
 
-  print(dataset)
-
+  ## return results:
+  if (plot) {
+    hist(dataset$currit,  main = "Test lengths", 
+         xlab = "Number of items administered")
+  }
+  print(table(dataset$SCrisk, dataset[,paste0("test", nitems)] >= Xstar,
+              dnn = c("curtailed: flagged 'risk'", "full length: 'at risk'")))
+  print(table(dataset$SCnorisk, dataset[,paste0("test", nitems)] < Xstar,
+              dnn = c("curtailed: flagged 'no risk'", "full length: 'no risk'")))
+  excl <- which(names(dataset) %in% c(
+    paste0("rest", 1:(nitems-1)), paste0("test", 1:nitems), 
+    paste0("Pkplus", 1:nitems), paste0("Pkmin", 1:nitems),
+    "plusflag1", "plusflag0", "minflag1", "minflag0"))
+  invisible(dataset[, -excl])
 }
 
 
@@ -251,69 +306,62 @@ stochCurtailXval <- function(dataset, Xstar, gamma0=.95, gamma1=.95) {
 
 
 
-Table <- function(dataset.train=NULL, Xstar, nitems=NULL, highest=NULL, lowest=NULL) {
+Table <- function(dataset.train = NULL, Xstar, nitems = NULL, highest = NULL, 
+                  lowest = NULL) {
 
-  # Define dataset etc.
-  if(is.null(highest)) {highest <- max(dataset.train, na.rm=T)}
-  if(is.null(lowest)) {lowest <- min(dataset.train, na.rm=T)}
-  if(is.null(nitems)) {nitems <- dim(dataset.train)[2]}
+  # Define dataset etc:
+  if (is.null(highest)) highest <- max(dataset.train, na.rm = TRUE)
+  if (is.null(lowest)) lowest <- min(dataset.train, na.rm = TRUE)
+  if (is.null(nitems)) nitems <- dim(dataset.train)[2]
 
-  # create final lookup table
-  boundaries <- matrix(NA, nrow=2, ncol=nitems)
-  boundaries <- data.frame(boundaries, row.names=c("no.risk","risk"))
-  colnames(boundaries) <- paste("item",1:nitems,sep="")
+  # Create lookup table:
+  boundaries <- matrix(NA, nrow = 2, ncol = nitems)
+  boundaries <- data.frame(boundaries, row.names = c("no.risk", "risk"))
+  colnames(boundaries) <- paste0("item", 1:nitems)
 
-  # compute boundaries
+  # Compute boundaries
   for (i in 1:nitems) {
-    boundaries["risk",i] <- Xstar - (nitems-i)*lowest
-  }
-  for (i in 1:nitems) {
-    if(boundaries["risk",i] > i*highest) {boundaries["risk",i] <- NA}
-  }
-
-
-  for (i in 1:nitems) {
-    boundaries["no.risk",i] <- (Xstar-1) - (nitems-i)*highest
-  }
-  for (i in 1:nitems) {
-    if(boundaries["no.risk",i] < i*lowest) {boundaries["no.risk",i] <- NA}
+    boundaries["risk", i] <- Xstar - (nitems-i)*lowest
+    if (boundaries["risk", i] > i*highest) boundaries["risk", i] <- NA
+    boundaries["no.risk", i] <- (Xstar-1) - (nitems-i)*highest
+    if (boundaries["no.risk", i] < i*lowest) boundaries["no.risk", i] <- NA
   }
 
-  print(boundaries)
+  return(boundaries)
 }
-
 
 
 
 
 stochTable <- function(dataset.train, Xstar, gamma0=.95, gamma1=.95) {
 
-  # Define dataset etc.
-  T <- dataset.train
+  # Define dataset etc:
   nitems <- dim(dataset.train)[2]
   nobs <- dim(dataset.train)[1]
   maxitemscore <- max(as.vector(dataset.train))
   minitemscore <- min(as.vector(dataset.train))
 
-  # trainingdata: calculate restscores for every respondent, and every item
-  T[paste("rest",1:(nitems-1),sep="")] <- NA
+  # Calculate restscores:
+  dataset.train[ , paste0("rest", 1:(nitems-1))] <- NA
   for (i in 2:(nitems-1)) {
-    T[,(nitems-1)+i] <- rowSums(T[,i:nitems]) }
-  T[paste("rest",nitems-1,sep="")] <- T[,nitems] # restscore after second last item is not a sum, but itemscore of last item
+    dataset.train[ , (nitems-1)+i] <- rowSums( dataset.train[ , i:nitems]) 
+  }
+  dataset.train[ , paste0("rest", nitems-1)] <-  dataset.train[ , nitems] # restscore after second last item equals itemscore of last item
 
-  # trainingdata: calculate total score for every participant:
-  T[paste("test",nitems,sep="")] <- rowSums(T[,1:nitems])
+  # Calculate total scores:
+  dataset.train[ , paste0("test", nitems)] <- rowSums( dataset.train[ , 1:nitems])
 
-  # split dataset into plus (above cutoff) and min (below cutoff part)
-  Tplus <- T[T[paste("test",nitems,sep="")]>=Xstar,]
-  Tmin <- T[T[paste("test",nitems,sep="")]<Xstar,]
+  # Split dataset into plus (above cutoff) and min (below cutoff observations):
+  Tplus <-  dataset.train[dataset.train[paste0("test", nitems)] >= Xstar, ]
+  Tmin <-  dataset.train[dataset.train[paste0("test", nitems)] < Xstar, ]
   Nplus <- dim(Tplus)[1]
   Nmin <- dim(Tmin)[1]
 
   # create vector for collecting critical "halt testing and flag"-values
-  critvalvec <- matrix(rep(NA, times=4*nitems), nrow=4, ncol=nitems)
-  critvalvec <- data.frame(critvalvec, row.names=c("critval.plus.g0","critval.plus.g1","critval.min.g0","critval.min.g1"))
-  colnames(critvalvec) <- paste("item",1:nitems,sep="")
+  critvalvec <- matrix(rep(NA, times = 4*nitems), nrow = 4, ncol = nitems)
+  critvalvec <- data.frame(critvalvec, row.names=c("critval.plus.g0","critval.plus.g1",
+                                                   "critval.min.g0","critval.min.g1"))
+  colnames(critvalvec) <- paste0("item", 1:nitems)
 
   # find critical values for gamm0 ("not at risk") and gamma 1 ("at risk") in Plus and Min datasets
   for (i in 1:(nitems-1)) {
@@ -337,427 +385,34 @@ stochTable <- function(dataset.train, Xstar, gamma0=.95, gamma1=.95) {
     # score should be >= to this value for early stopping and "at risk" flagging
   }
 
-  # critical values for last item is always equal to original Xstar
-  critvalvec["critval.plus.g1",nitems] <- Xstar
-  critvalvec["critval.min.g1",nitems] <- Xstar
-  critvalvec["critval.plus.g0",nitems] <- Xstar
-  critvalvec["critval.min.g0",nitems] <- Xstar
+  # Set critical values for last item equal to original Xstar:
+  critvalvec[, nitems] <- Xstar
 
-  # check if critical values are possible, if not: set to NA
-  for (i in 1:nitems) {
-    if(critvalvec["critval.plus.g0",i] < minitemscore*i | critvalvec["critval.plus.g0",i] > maxitemscore*i)
-    {critvalvec["critval.plus.g0",i] <- NA}
-    if(critvalvec["critval.min.g0",i] < minitemscore*i | critvalvec["critval.min.g0",i] > maxitemscore*i)
-    {critvalvec["critval.min.g0",i] <- NA}
-    if(critvalvec["critval.plus.g1",i] < minitemscore*i | critvalvec["critval.plus.g1",i] > maxitemscore*i)
-    {critvalvec["critval.plus.g1",i] <- NA}
-    if(critvalvec["critval.min.g1",i] < minitemscore*i | critvalvec["critval.min.g1",i] > maxitemscore*i)
-    {critvalvec["critval.min.g1",i] <- NA}
-
-    # create final lookup table
-    boundaries <- matrix(NA, nrow=2, ncol=nitems)
-    boundaries <- data.frame(boundaries, row.names=c("no.risk","risk"))
-    colnames(boundaries) <- paste("item",1:nitems,sep="")
-
-    for (i in 1:dim(boundaries)[2]) {
-      if ({critvalvec["critval.plus.g0",i] <= critvalvec["critval.min.g0",i]} & {!is.na(critvalvec["critval.plus.g0",i])} & {!is.na(critvalvec["critval.min.g0",i])}) {
-        boundaries["no.risk",i] <- critvalvec["critval.plus.g0",i]-1} else {
-          boundaries["no.risk",i] <- NA}}
-
-    for (i in 1:dim(boundaries)[2]) {
-      if ({critvalvec["critval.plus.g1",i] <= critvalvec["critval.min.g1",i]} & {!is.na(critvalvec["critval.plus.g1",i])} & {!is.na(critvalvec["critval.min.g1",i])}) {
-        boundaries["risk",i] <- critvalvec["critval.min.g1",i]} else {
-          boundaries["risk",i] <- NA}}
+  ## Create final lookup table:
+  boundaries <- matrix(NA, nrow = 2, ncol = nitems)
+  boundaries <- data.frame(boundaries, row.names = c("no.risk", "risk"))
+  colnames(boundaries) <- paste0("item", 1:nitems)
+  for (i in 1:dim(boundaries)[2]) {
+    if ({critvalvec["critval.plus.g0", i] <= critvalvec["critval.min.g0", i]} & 
+        {!is.na(critvalvec["critval.plus.g0",i])} & {!is.na(critvalvec["critval.min.g0",i])}) {
+      boundaries["no.risk", i] <- critvalvec["critval.plus.g0", i]-1
+    } else {
+      boundaries["no.risk",i] <- NA
+    }
   }
-  print(boundaries)
+  for (i in 1:dim(boundaries)[2]) {
+    if ({critvalvec["critval.plus.g1",i] <= critvalvec["critval.min.g1",i]} & 
+        {!is.na(critvalvec["critval.plus.g1",i])} & {!is.na(critvalvec["critval.min.g1",i])}) {
+      boundaries["risk",i] <- critvalvec["critval.min.g1",i]
+    } else {
+      boundaries["risk",i] <- NA
+    }
+  }
+
+  # Set impossible critical values to NA:
+  for (i in 1:nitems) {
+    boundaries[boundaries[ , i] < minitemscore*i | boundaries[ , i] > maxitemscore*i, i] <- NA
+  }
+
+  return(boundaries)
 }
-
-
-
-
-
-
-
-
-
-itemscores <- data.frame(matrix(nrow=1000,ncol=20,byrow=T,dimnames=list(1:1000,paste(
-  "item",1:20,sep="")), data=c(
-    0,0,0,3,0,1,1,1,0,0,0,0,0,2,0,2,1,1,2,1,1,1,0,1,1,2,0,0,0,0,0,0,0,0,1,0,1,2,1,2,0,0,0,0,1,1,0,0,0,1,1,1,2,1,
-    0,3,0,0,1,0,1,1,0,1,2,2,0,0,1,1,1,0,0,1,0,0,0,1,0,0,0,0,0,1,3,0,1,1,1,2,0,1,0,0,0,1,1,0,0,2,0,1,1,1,2,0,0,0,
-    0,1,0,1,2,2,0,0,1,1,2,0,0,0,1,3,0,0,0,1,0,0,0,0,0,1,0,0,0,0,1,1,0,1,2,2,0,2,0,0,0,1,1,0,0,2,1,1,0,1,1,1,0,2,
-    2,0,2,1,0,0,1,1,2,2,1,1,1,0,0,0,0,0,3,1,1,0,0,0,1,1,0,0,1,1,0,1,0,1,0,2,0,0,0,1,1,0,0,0,3,1,0,1,0,1,0,3,0,0,
-    0,0,0,0,0,0,3,3,1,2,0,0,1,0,0,0,2,3,0,0,1,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,2,0,0,0,0,0,0,1,0,0,1,2,1,1,
-    1,0,1,1,1,3,1,0,1,1,0,1,0,2,0,0,0,1,1,1,0,1,2,2,0,1,1,0,0,0,1,0,0,1,1,2,0,0,1,1,1,1,0,0,0,2,0,0,3,3,0,1,1,0,
-    0,0,0,0,0,1,1,2,1,0,0,0,1,1,0,0,0,1,3,0,1,0,0,0,0,1,0,1,1,0,0,0,0,0,2,1,1,0,0,1,0,2,0,0,0,1,2,1,1,0,1,0,1,0,
-    0,2,0,1,0,0,2,0,1,2,0,0,1,1,1,3,1,0,0,1,1,1,0,1,0,0,0,0,0,1,0,2,0,1,0,0,1,2,1,1,0,0,1,1,1,1,1,0,0,1,2,0,2,0,
-    1,1,2,1,0,0,2,2,0,0,1,0,1,0,0,1,0,1,2,2,1,2,2,1,1,1,0,2,2,0,0,1,1,1,0,1,0,2,0,0,2,2,0,2,1,0,0,0,0,2,2,0,0,2,
-    0,0,2,1,1,0,1,0,0,0,0,1,1,2,0,2,2,0,0,1,1,0,0,2,0,0,1,1,0,0,1,3,0,0,0,0,0,1,0,0,1,1,1,0,2,0,0,2,1,1,3,1,1,1,
-    0,2,3,0,1,0,0,1,1,0,0,1,1,2,0,1,1,1,1,0,0,1,1,1,0,1,0,0,0,1,0,1,0,0,0,2,0,0,2,1,1,0,2,0,0,0,0,0,0,1,2,0,1,2,
-    1,0,1,0,0,0,0,1,1,0,0,0,1,0,1,2,0,0,1,0,0,1,0,2,1,2,1,0,0,1,0,0,0,2,2,1,0,0,1,2,1,0,0,0,1,0,1,1,0,0,2,0,0,0,
-    0,1,2,0,0,0,1,1,0,0,2,1,0,0,0,1,1,1,1,2,1,0,1,0,1,1,0,0,0,1,0,0,0,1,0,1,0,1,0,1,1,0,0,1,3,0,0,0,1,2,1,1,0,1,
-    0,0,2,0,0,0,0,0,0,1,1,2,2,1,2,1,1,0,0,0,2,0,0,1,0,0,1,0,1,1,0,1,1,0,0,0,0,0,0,2,0,1,0,1,2,0,0,1,0,0,1,0,1,0,
-    1,0,0,0,0,0,0,0,0,0,0,2,0,1,0,1,1,1,0,0,0,1,1,2,1,0,0,1,1,2,2,1,1,2,0,0,0,2,0,0,1,1,1,2,1,2,0,0,0,0,0,1,0,0,
-    0,1,0,2,1,1,0,0,0,0,0,0,0,1,0,1,0,1,0,0,0,0,0,1,1,1,2,0,0,2,0,1,1,1,1,2,2,0,0,1,1,0,1,1,2,0,0,1,1,1,0,1,1,0,
-    0,0,2,1,0,1,0,0,0,0,0,1,1,0,0,0,0,1,0,0,2,0,2,2,0,0,1,0,2,1,0,2,1,2,1,0,1,0,1,1,2,0,1,1,1,0,1,0,0,0,2,0,1,0,
-    2,2,0,0,0,0,2,2,0,0,0,0,2,0,1,0,0,0,1,0,0,0,0,0,1,2,1,0,2,0,0,0,3,0,0,1,1,0,1,0,0,1,0,0,2,0,2,1,0,1,0,1,1,0,
-    1,0,0,0,1,2,0,1,1,1,0,0,1,1,0,0,0,0,0,2,0,2,1,1,1,1,0,1,0,1,0,0,0,0,0,0,0,0,1,2,0,3,0,2,1,1,1,0,0,2,3,1,0,3,
-    0,0,0,0,1,2,0,0,0,1,0,1,0,0,0,2,0,1,0,0,0,0,0,1,0,2,0,2,0,3,0,1,0,0,1,0,0,0,2,2,2,0,0,0,3,0,0,0,3,0,3,1,0,0,
-    2,1,0,0,1,2,3,1,1,0,0,3,0,0,0,1,1,0,1,2,1,0,2,1,1,0,0,0,0,0,1,0,3,0,3,0,2,1,0,3,0,0,0,2,0,2,1,1,0,0,0,0,0,0,
-    0,0,0,0,1,1,0,3,3,3,2,0,0,1,0,2,1,0,0,3,0,0,0,0,0,0,0,3,3,0,0,1,0,1,2,0,1,1,0,0,0,0,2,0,0,0,2,1,0,1,0,0,0,1,
-    0,1,0,0,0,0,0,0,0,0,2,0,0,0,1,0,0,0,3,0,0,0,0,0,1,1,0,0,0,1,0,0,0,1,3,3,0,2,0,0,2,1,0,0,0,2,0,0,0,0,1,1,0,0,
-    1,0,0,1,0,0,1,1,0,0,1,0,0,0,0,0,2,0,0,2,0,0,0,0,0,1,1,0,0,1,0,0,0,2,0,0,1,1,2,0,0,1,0,1,0,1,0,0,0,1,0,0,0,0,
-    1,1,0,1,0,0,2,0,0,1,0,0,0,2,0,2,0,0,0,0,0,0,1,3,1,1,0,1,0,0,0,1,0,0,1,1,0,0,0,0,0,1,0,0,0,2,2,0,0,3,0,0,0,0,
-    0,1,0,0,0,0,1,0,0,1,0,2,1,0,1,3,0,0,3,2,1,1,0,0,0,0,0,0,0,2,0,0,1,0,1,1,0,3,0,0,3,3,1,1,3,0,1,0,1,1,1,1,0,1,
-    0,1,0,0,0,0,2,0,0,1,0,0,2,0,2,1,1,0,0,1,3,0,0,0,1,2,0,0,2,0,3,0,0,0,0,3,1,0,0,0,0,0,1,1,1,0,2,1,3,0,3,1,2,0,
-    0,0,0,0,1,0,0,0,1,0,0,1,2,0,0,0,0,0,2,0,1,0,0,0,0,1,0,0,0,0,1,2,0,0,0,0,0,0,0,0,1,3,0,1,2,0,0,0,3,0,0,2,0,0,
-    1,0,0,0,2,2,2,1,1,0,1,0,1,2,0,0,0,1,3,0,0,2,0,3,0,1,1,2,0,1,2,1,0,0,0,1,0,0,0,0,3,0,3,1,0,0,0,3,0,0,2,0,1,0,
-    0,1,1,0,0,0,0,0,1,2,0,0,2,1,0,1,3,0,0,0,0,2,0,0,1,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,2,0,0,0,0,1,0,0,0,0,0,0,2,1,
-    0,0,0,0,0,3,0,2,0,0,1,1,1,0,0,0,0,1,1,0,1,2,0,0,2,1,0,0,0,0,3,0,0,0,0,0,0,0,0,2,0,0,0,0,3,0,1,3,0,0,2,0,0,1,
-    0,1,1,1,0,2,0,1,0,0,2,1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,2,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,3,2,0,3,0,2,2,0,0,1,1,0,
-    3,0,0,1,1,0,1,0,0,1,2,0,1,1,1,2,0,1,0,0,2,3,0,0,0,0,1,1,0,2,1,0,0,1,0,1,0,0,0,1,1,1,1,0,0,0,1,0,3,0,0,1,0,0,
-    3,0,0,3,2,0,1,2,2,0,0,1,0,0,0,3,0,0,0,3,0,0,0,0,0,0,0,1,2,0,0,3,0,1,0,0,1,0,1,1,1,0,0,0,0,0,0,0,1,1,0,0,3,0,
-    0,1,0,0,0,0,0,2,0,1,0,0,1,0,1,0,3,2,0,0,0,1,2,0,2,0,0,0,0,1,2,1,0,0,0,0,1,0,1,0,0,0,0,0,0,1,1,0,0,0,1,0,1,1,
-    1,0,0,1,0,1,2,0,1,0,0,0,0,0,0,0,1,1,0,0,0,1,0,1,2,1,1,1,0,3,1,2,0,0,1,1,0,0,1,0,0,1,0,0,0,1,1,2,0,0,0,0,0,0,
-    0,0,0,0,0,2,0,1,1,0,0,0,2,0,0,2,0,0,0,0,0,0,1,0,0,1,2,1,0,0,0,0,0,1,0,0,0,0,0,0,2,0,0,0,1,0,0,1,0,0,1,1,0,0,
-    1,2,0,0,0,0,0,1,0,1,0,0,0,0,0,1,0,1,0,2,1,0,3,0,3,0,0,2,0,0,0,0,0,0,0,0,2,2,0,0,0,0,0,0,0,0,0,0,0,0,2,0,0,3,
-    1,0,0,3,0,0,0,0,2,0,0,1,1,3,0,0,1,1,1,0,0,0,0,0,1,0,0,0,0,0,0,1,3,2,0,0,0,1,1,2,0,0,0,1,1,0,0,2,0,1,0,0,0,0,
-    0,0,0,1,0,0,2,1,0,0,0,0,0,1,0,0,0,2,1,0,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0,0,2,1,0,0,0,0,0,0,2,0,0,2,0,0,0,1,0,1,
-    1,2,0,0,0,0,0,0,0,0,2,1,1,1,0,1,1,0,1,0,0,2,3,0,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,1,0,0,0,3,0,0,0,0,0,0,2,
-    0,0,0,1,0,0,0,1,2,3,1,1,0,0,0,0,0,0,0,2,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,2,0,0,0,0,0,1,0,0,0,1,2,
-    0,2,0,2,0,1,0,2,0,0,0,0,3,1,0,1,0,2,0,2,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,3,0,0,0,0,0,1,0,0,0,0,0,0,3,3,0,3,
-    0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,3,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,2,2,0,0,0,0,0,1,0,0,1,3,0,0,0,1,0,0,
-    0,0,0,1,0,1,1,0,2,0,0,2,0,0,1,3,0,1,1,0,0,2,0,0,0,1,1,0,0,1,0,0,0,2,1,0,0,0,1,0,2,1,0,0,0,0,1,0,2,0,1,0,3,0,
-    3,0,0,0,2,0,0,1,0,3,0,0,0,0,0,0,1,1,1,2,0,0,0,3,1,0,2,0,0,0,1,0,0,0,1,1,0,0,0,2,0,1,1,3,0,2,0,0,0,0,0,3,0,0,
-    1,1,0,1,1,0,0,0,1,0,0,0,0,1,0,1,0,2,1,0,0,0,1,0,0,1,0,0,0,0,0,0,3,2,0,0,0,0,0,1,0,0,0,0,0,0,2,0,1,0,3,1,3,0,
-    0,0,0,2,3,0,0,0,0,0,2,0,0,0,1,1,1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,2,1,0,2,0,0,0,0,0,0,1,2,0,
-    0,1,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,1,0,0,1,0,0,1,0,0,0,1,0,0,0,0,0,1,0,2,0,0,0,3,0,0,0,0,0,0,3,0,0,0,0,0,2,0,
-    0,0,0,0,1,1,1,0,0,0,0,0,1,2,0,0,0,0,3,0,2,2,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,2,2,0,0,1,0,1,0,3,1,0,0,0,2,0,1,
-    0,0,0,0,0,0,0,0,1,0,0,0,0,1,0,1,0,0,0,0,0,0,1,0,0,0,1,0,0,0,0,2,0,0,1,0,0,1,2,0,0,0,0,0,0,0,2,0,0,2,0,0,0,0,
-    1,0,0,0,0,0,0,0,0,0,0,0,0,2,0,0,0,0,0,2,0,0,0,1,0,3,0,0,0,0,0,2,1,1,0,3,1,0,0,0,0,0,1,2,0,0,0,3,0,0,0,0,1,0,
-    0,0,1,0,0,2,0,3,0,0,0,2,0,0,0,3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,0,0,0,1,0,0,1,2,0,3,1,1,0,1,1,1,0,0,0,
-    0,0,0,0,1,0,0,0,0,0,0,1,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,0,0,0,2,1,0,0,0,0,0,1,0,0,1,0,0,0,0,0,0,3,0,
-    0,2,2,2,0,0,0,0,1,2,0,0,0,0,1,0,0,0,0,0,1,0,0,0,2,3,0,0,1,0,0,0,0,1,0,0,0,1,1,0,2,0,0,0,0,0,1,0,2,0,0,0,0,2,
-    1,0,0,0,0,1,1,0,0,0,0,0,0,0,2,1,0,0,0,1,0,0,0,0,0,0,1,0,0,2,0,1,2,0,2,1,0,0,3,3,1,0,3,3,0,1,3,2,1,2,3,2,3,2,
-    1,0,1,0,0,0,1,0,0,0,0,3,0,0,1,0,2,0,1,0,3,2,0,1,0,0,0,3,2,1,3,0,0,1,0,0,0,2,0,1,3,2,1,0,3,1,2,0,2,0,1,0,1,2,
-    0,1,0,0,0,1,3,1,1,1,3,1,2,2,0,0,0,3,2,1,1,2,0,0,0,1,0,0,2,0,1,2,0,3,3,3,0,0,1,0,0,1,0,0,1,3,0,1,0,0,0,0,2,0,
-    0,3,3,0,1,2,1,0,0,1,3,3,2,1,0,3,3,0,2,3,1,1,0,0,1,1,0,2,0,3,2,0,2,2,1,1,0,1,2,3,0,1,1,0,3,3,0,0,1,0,3,0,3,1,
-    2,3,1,1,0,0,3,3,1,0,3,2,0,3,0,2,1,0,0,0,3,2,1,0,3,1,1,3,0,0,3,0,3,0,1,0,3,3,2,2,0,0,2,0,3,0,1,0,0,1,0,3,1,0,
-    1,0,2,0,1,1,1,0,0,0,2,0,0,3,0,0,2,0,2,0,0,1,0,0,3,2,2,1,1,2,0,3,1,1,0,3,0,1,1,1,3,0,0,1,0,1,1,0,0,1,0,0,0,1,
-    0,3,3,3,0,0,3,1,3,0,0,3,1,0,0,1,0,3,0,0,0,2,0,3,3,3,1,0,0,0,1,0,0,1,3,0,1,1,1,0,1,0,2,0,0,0,0,0,3,3,3,3,1,3,
-    0,1,1,1,0,2,0,1,0,2,2,1,0,1,0,0,1,1,2,1,2,3,0,0,2,3,1,3,1,2,2,2,2,0,1,0,1,2,2,3,1,0,0,0,1,3,2,1,1,1,0,0,0,0,
-    0,3,1,1,0,0,1,3,2,3,3,1,1,2,3,3,1,1,1,0,3,1,3,1,0,0,0,2,3,0,1,0,3,0,0,1,3,3,1,1,1,1,0,0,0,1,1,2,2,2,0,2,3,1,
-    3,3,0,0,0,2,1,3,2,1,2,2,0,0,0,3,0,2,1,3,0,1,1,1,1,1,0,1,0,3,0,0,1,0,0,3,0,0,0,3,0,3,0,1,0,3,3,0,0,1,2,3,3,1,
-    1,0,0,0,0,3,3,3,1,0,0,1,2,2,1,0,0,1,0,1,3,0,2,3,2,2,3,1,1,0,0,0,3,0,1,0,3,1,3,1,1,0,1,2,0,0,0,1,0,1,2,1,0,0,
-    0,1,0,0,2,0,1,2,1,0,0,1,0,0,2,0,0,0,3,3,0,3,1,1,0,2,2,1,2,2,0,3,1,0,0,0,3,2,0,0,0,0,0,0,2,1,1,3,2,1,0,1,3,0,
-    2,3,0,3,0,1,0,3,0,2,0,1,3,2,0,0,0,1,0,1,2,0,1,0,0,0,2,1,0,0,0,1,3,0,1,0,1,1,0,0,1,2,3,0,3,1,3,2,2,1,1,0,2,0,
-    0,3,3,0,1,2,0,0,0,1,0,1,0,2,0,2,0,1,3,1,2,1,0,1,1,1,1,2,0,0,1,1,0,0,3,1,2,0,0,0,2,3,3,0,1,1,1,2,3,3,3,0,0,1,
-    0,2,2,1,1,1,0,0,1,2,0,1,2,1,2,2,1,0,0,0,1,0,2,3,0,0,2,0,1,1,1,2,0,0,3,1,1,0,0,3,0,3,0,2,3,1,0,2,0,0,0,1,2,0,
-    0,0,0,1,3,3,1,0,0,3,0,2,0,2,0,1,1,3,1,0,3,0,0,0,0,0,1,0,0,3,1,2,0,3,2,3,3,1,1,3,0,1,1,2,3,0,0,1,0,0,1,0,0,0,
-    2,0,1,0,3,0,1,1,0,0,0,1,2,2,2,0,1,0,2,0,2,0,2,1,2,3,2,1,0,1,0,1,1,1,1,0,1,1,3,1,1,0,3,3,2,3,0,3,0,3,1,0,1,0,
-    0,0,0,0,1,3,3,1,0,2,1,0,1,1,1,1,1,0,0,0,2,0,2,1,0,0,3,2,1,1,0,2,0,0,3,0,2,1,1,0,3,0,3,0,0,2,3,0,0,1,3,0,2,3,
-    3,2,0,3,2,0,0,3,3,0,0,1,2,0,3,0,0,1,0,0,2,1,3,3,3,1,0,2,2,0,1,0,0,1,2,0,2,2,2,0,0,0,3,0,0,0,0,0,3,2,0,1,1,0,
-    0,0,0,0,0,2,1,3,0,2,0,0,0,0,3,0,0,3,0,2,0,1,1,1,2,1,1,1,2,1,1,0,2,1,3,1,0,2,3,1,2,1,1,2,1,1,0,2,0,2,0,2,3,1,
-    2,2,2,2,3,3,0,0,1,1,3,2,0,2,1,2,0,0,2,2,1,3,0,0,0,0,2,2,1,1,2,2,1,2,1,3,2,2,1,3,1,3,0,0,0,1,3,1,3,3,1,2,1,0,
-    2,2,2,1,1,1,2,0,3,3,0,1,2,2,1,1,1,1,0,2,1,3,2,0,1,0,0,0,0,2,0,0,1,1,0,1,2,1,2,2,1,3,1,2,0,1,3,0,2,2,2,2,2,1,
-    1,2,2,2,1,0,0,2,1,0,2,0,2,3,0,1,0,3,1,0,1,1,1,2,0,1,0,0,2,0,1,0,1,2,0,3,0,1,1,1,2,0,1,2,1,1,1,0,3,2,0,2,0,1,
-    2,3,1,1,0,2,0,1,1,0,3,1,2,3,1,1,2,2,0,1,0,3,2,2,2,0,2,1,2,0,0,0,0,0,0,2,2,1,0,1,2,1,1,1,3,0,0,1,2,1,0,1,0,3,
-    2,2,2,2,2,3,1,2,1,3,0,1,3,3,2,1,0,2,0,2,1,1,2,1,1,0,0,0,1,0,1,2,0,2,2,0,1,2,0,3,2,3,1,2,3,2,1,1,0,2,0,0,3,3,
-    1,3,1,1,0,1,1,0,0,2,0,0,2,0,2,2,2,1,0,0,1,0,3,0,1,2,3,0,1,1,1,1,1,1,1,1,0,0,1,1,1,1,0,0,1,3,3,0,1,3,2,0,2,0,
-    1,0,1,0,0,2,3,2,1,1,2,0,0,2,1,1,3,3,1,2,3,3,1,2,3,2,1,2,0,0,0,1,2,1,0,3,0,1,0,1,3,2,3,1,1,1,0,1,2,2,2,2,0,1,
-    3,1,2,0,1,2,3,1,1,0,3,3,0,0,2,1,2,0,2,2,2,2,3,1,0,2,3,2,3,2,0,1,2,2,0,1,0,2,0,1,0,3,2,2,2,2,1,1,1,2,1,2,1,3,
-    0,2,2,1,1,2,2,1,1,0,2,1,1,3,2,0,2,2,1,3,3,1,1,3,3,1,0,2,1,0,0,0,0,0,2,3,0,2,1,0,0,0,1,2,1,1,2,0,2,0,0,1,1,3,
-    3,3,2,2,2,1,2,2,1,0,0,2,2,0,1,1,1,2,0,2,2,1,3,3,0,2,1,1,2,2,1,0,1,3,3,1,0,1,2,2,1,1,3,2,1,1,3,0,1,0,0,0,1,2,
-    2,0,2,3,1,1,2,0,2,0,3,2,1,2,1,0,1,0,3,2,1,1,1,1,2,1,0,1,1,3,2,1,0,1,1,2,0,2,3,1,2,0,2,2,1,0,2,0,2,0,1,3,2,0,
-    3,3,3,0,1,2,3,2,1,1,1,1,0,1,1,3,0,0,1,0,3,2,2,2,2,0,1,0,1,1,0,1,0,2,0,1,1,1,0,1,2,2,2,2,1,1,1,0,2,1,0,2,0,3,
-    2,3,0,1,1,0,3,0,1,1,0,0,2,0,2,3,2,1,0,2,3,0,0,0,2,1,1,2,3,0,1,0,1,3,0,1,1,1,1,2,1,1,1,2,1,2,1,2,3,0,3,3,0,0,
-    2,1,2,1,0,1,2,2,0,2,1,1,0,0,0,3,2,1,2,1,1,2,0,1,0,2,3,2,2,1,1,2,1,3,2,1,1,3,2,1,1,2,0,0,3,2,0,0,0,1,1,1,0,0,
-    0,1,2,0,3,1,1,1,0,2,0,1,1,2,1,1,0,2,0,1,0,0,1,0,0,1,1,0,1,3,3,1,0,2,0,2,1,1,0,2,1,2,1,2,2,1,3,2,2,0,2,0,1,1,
-    2,1,1,2,1,0,2,0,0,1,0,1,1,0,2,1,0,0,0,0,2,0,2,1,3,1,1,2,1,2,0,2,1,2,1,1,2,2,1,0,2,2,1,0,3,1,1,0,1,2,0,2,1,1,
-    3,0,2,2,2,3,2,0,0,1,3,1,0,0,0,0,1,2,1,2,1,1,1,1,0,2,1,1,1,1,1,0,3,0,0,3,0,2,2,2,2,0,2,1,1,2,1,2,2,1,2,2,3,1,
-    1,1,2,2,0,1,0,2,0,3,0,2,0,2,1,0,2,2,0,2,1,2,3,3,3,2,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,2,0,2,1,3,2,0,2,1,
-    2,0,0,3,0,0,0,0,0,0,0,2,1,1,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,2,1,1,1,3,0,0,0,0,2,0,0,0,2,2,0,0,1,0,0,1,1,0,0,0,
-    2,0,0,0,0,0,0,1,3,2,0,0,0,2,0,2,0,0,0,0,1,1,1,2,0,1,0,0,1,1,1,0,1,0,0,0,2,3,0,0,0,1,0,0,0,0,1,3,0,1,1,0,0,0,
-    0,0,0,1,0,0,0,0,0,0,0,0,2,2,0,1,0,1,0,0,1,0,1,2,0,0,0,1,0,1,3,1,0,0,1,2,0,0,1,0,2,2,1,1,1,0,1,0,0,0,1,2,2,0,
-    0,0,1,1,0,1,0,0,0,0,0,0,2,1,0,0,0,0,0,0,0,0,3,0,0,0,0,0,0,3,0,0,0,1,0,0,0,0,3,3,0,1,0,0,1,0,0,1,0,2,0,0,0,0,
-    1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,2,0,0,0,0,0,0,0,0,1,0,2,0,2,0,1,0,1,0,3,0,2,2,2,3,1,0,0,0,2,0,1,0,0,0,0,
-    0,0,0,1,0,0,0,0,0,2,0,0,0,3,0,0,0,1,0,1,0,0,0,1,0,0,3,3,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1,0,0,1,0,1,0,0,3,0,0,0,
-    3,0,0,1,0,0,0,1,0,0,0,0,2,1,0,0,0,0,0,1,3,0,1,2,1,0,1,0,1,0,0,1,0,1,2,1,0,0,0,0,0,2,1,0,1,3,0,3,2,0,0,0,1,0,
-    0,1,0,0,0,0,0,0,0,3,1,0,0,0,1,0,3,0,0,0,1,1,1,1,1,0,0,0,3,0,3,0,0,0,3,0,0,2,2,1,0,0,1,0,0,0,3,2,1,1,3,1,0,2,
-    2,0,3,1,0,1,0,1,0,0,0,0,0,1,0,1,1,0,2,3,0,3,0,1,0,0,0,2,1,1,1,1,0,0,2,1,1,0,1,1,0,0,0,0,0,3,0,1,1,1,0,0,0,1,
-    0,2,0,0,0,0,0,0,2,2,0,1,0,0,0,0,0,0,0,0,0,0,3,0,0,0,0,1,3,0,0,0,0,1,3,0,1,0,0,0,2,0,0,0,1,2,1,1,0,0,0,0,1,0,
-    0,0,0,2,0,0,0,0,1,1,0,0,0,1,0,0,1,2,1,0,3,0,0,0,1,0,0,2,2,0,0,1,0,0,1,0,0,0,2,1,0,0,0,0,0,0,1,2,1,0,1,1,0,1,
-    0,0,1,2,1,0,0,0,0,1,0,2,1,0,0,2,1,1,0,0,0,0,2,0,0,0,0,0,1,0,0,0,0,0,2,1,0,0,0,0,0,1,1,2,1,0,0,0,3,1,1,2,0,0,
-    0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,1,1,0,0,0,2,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,1,0,0,0,0,2,0,1,2,0,1,1,0,0,1,1,
-    0,1,1,0,0,0,0,3,1,0,0,0,0,0,1,0,0,1,1,0,0,0,2,0,2,2,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,0,0,0,1,1,0,0,0,0,1,
-    0,1,0,0,0,1,0,3,1,1,0,3,0,0,0,2,0,0,0,2,1,0,0,3,0,0,0,0,1,1,0,0,3,0,0,2,0,3,0,1,0,0,0,0,0,2,0,0,0,1,0,0,0,0,
-    0,0,0,2,1,0,0,1,0,1,1,0,0,1,2,0,0,1,1,0,2,1,1,0,0,0,1,1,0,1,0,1,0,0,1,0,2,0,2,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,
-    1,2,0,1,0,0,0,1,0,0,0,2,0,0,0,1,0,0,1,0,0,0,0,0,1,1,1,0,3,0,0,2,2,2,0,0,0,0,1,2,0,0,0,0,0,0,0,0,0,0,1,2,0,0,
-    1,0,0,2,1,0,2,0,1,0,2,0,1,1,1,0,1,0,0,1,0,1,2,0,2,1,0,0,0,1,1,0,0,0,0,0,0,3,0,0,0,1,0,1,0,2,0,0,0,0,0,1,0,0,
-    0,0,0,1,0,1,1,1,0,2,0,1,0,0,0,0,2,0,0,2,0,3,0,1,1,0,1,0,3,2,1,0,0,0,1,1,0,0,0,2,3,1,0,3,0,1,0,1,0,0,1,0,0,2,
-    2,1,1,2,2,3,0,3,1,0,1,0,1,1,0,0,0,1,0,0,1,0,1,0,0,1,0,0,1,1,0,1,1,0,0,1,1,2,0,1,1,2,0,2,0,0,0,0,2,1,2,2,0,1,
-    0,1,2,1,1,0,1,1,0,0,1,2,0,0,1,1,1,0,1,0,3,2,0,2,0,1,0,0,1,0,0,0,0,0,1,0,0,0,0,0,2,2,0,0,1,0,3,1,2,0,0,2,0,1,
-    0,1,1,1,0,2,2,0,0,1,2,1,1,1,1,2,1,0,0,0,1,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,3,0,1,0,0,0,0,0,1,0,0,0,0,3,2,0,0,
-    0,0,1,3,0,0,0,1,0,0,0,0,2,3,1,2,1,0,1,1,0,1,0,1,1,2,1,1,1,0,1,0,0,0,3,0,0,1,1,0,0,0,1,0,1,0,2,0,0,0,1,0,0,1,
-    0,0,1,1,1,3,1,2,0,1,1,2,0,1,2,2,3,0,0,1,0,2,0,0,1,0,0,2,0,1,1,0,0,0,0,0,1,1,0,0,0,2,0,0,2,1,2,1,1,0,0,0,0,0,
-    3,3,2,2,1,0,1,1,0,0,0,3,1,0,0,0,0,1,2,0,0,0,0,2,3,1,0,0,3,0,0,1,1,0,1,0,0,0,0,2,2,1,0,1,1,0,1,2,3,0,1,3,1,1,
-    1,0,0,0,0,0,0,1,0,1,0,0,1,0,1,3,0,0,3,1,1,3,2,2,0,1,2,2,1,2,0,0,0,0,1,2,1,3,0,0,0,2,0,3,3,1,0,0,1,1,1,1,3,0,
-    0,0,3,0,3,0,0,0,3,1,1,0,1,3,1,0,1,3,0,0,1,1,1,1,0,1,2,0,3,2,2,1,0,2,0,0,0,1,0,1,2,1,0,1,1,0,0,1,1,3,2,1,0,0,
-    0,3,0,0,1,0,1,0,2,1,0,0,3,0,0,1,0,0,1,2,0,1,1,1,1,0,2,0,0,1,0,0,0,0,0,0,2,2,1,2,1,0,1,0,0,1,1,1,1,0,2,0,0,1,
-    1,3,3,0,0,1,0,2,2,1,0,0,1,2,1,0,0,1,1,1,0,2,1,0,1,0,0,1,0,0,0,1,0,0,1,1,1,1,0,0,1,1,0,0,2,0,1,1,3,1,0,0,0,0,
-    0,1,3,0,0,2,1,1,1,0,0,0,3,0,0,0,0,0,2,0,1,1,1,0,0,1,1,0,0,0,1,2,1,0,0,0,1,0,0,2,0,1,1,1,0,0,0,0,0,2,1,0,1,0,
-    1,0,1,1,0,0,0,0,3,0,1,0,1,1,0,1,0,1,0,1,0,0,2,0,2,1,0,0,0,0,1,0,0,0,0,1,0,1,0,1,0,2,1,3,0,2,0,0,0,0,0,2,0,1,
-    1,1,0,3,0,0,1,0,0,0,0,1,2,0,1,3,1,1,1,1,1,2,2,0,0,0,3,0,0,2,1,0,1,0,1,3,1,3,2,1,1,2,1,0,0,2,1,1,0,2,2,1,3,3,
-    1,1,1,0,1,0,0,0,1,1,0,0,1,2,0,0,0,2,1,0,0,1,2,2,0,0,0,0,0,1,0,2,0,0,0,3,1,1,0,3,3,0,0,2,0,0,1,2,1,0,1,2,0,1,
-    0,0,0,2,0,0,1,0,1,1,1,1,1,0,2,0,0,0,0,1,0,0,0,1,0,0,1,0,0,0,2,3,2,2,0,0,0,0,1,0,0,1,2,1,0,2,3,0,2,0,0,0,0,1,
-    1,0,2,1,1,1,1,0,2,2,0,1,0,0,0,0,0,0,2,0,0,0,1,0,1,1,2,0,3,0,0,0,0,2,0,1,0,0,1,2,3,1,1,0,1,0,0,0,0,0,0,2,0,0,
-    0,0,2,0,1,1,1,3,0,0,1,0,2,3,1,1,0,0,0,0,2,0,0,0,0,0,1,2,0,0,0,2,1,0,2,0,0,0,0,3,1,3,0,0,0,1,0,1,0,3,2,0,1,0,
-    0,2,0,0,1,0,1,1,0,2,0,3,0,1,0,1,0,0,1,2,1,0,0,0,0,2,0,3,1,0,0,1,1,1,1,1,0,2,1,1,0,0,0,3,3,0,3,2,0,2,2,3,2,2,
-    3,1,1,2,0,2,1,0,0,1,1,1,0,0,2,1,2,1,2,0,0,1,3,1,1,2,0,3,0,1,1,3,2,0,3,3,3,0,1,0,3,1,0,2,2,3,2,1,1,1,1,2,0,0,
-    1,0,1,2,1,2,0,0,2,0,0,1,0,3,0,3,2,3,2,0,0,1,2,3,1,3,1,0,1,1,0,1,3,0,1,3,3,2,3,3,0,1,0,2,0,0,0,0,1,2,0,1,0,0,
-    0,0,1,0,0,2,3,0,1,2,1,1,0,1,2,2,1,0,1,1,0,1,2,0,2,1,2,3,2,1,1,1,1,1,0,1,1,1,2,0,0,1,3,2,1,1,2,2,2,0,0,0,2,2,
-    3,0,2,0,1,1,0,0,1,1,0,0,1,0,1,3,2,3,0,3,1,0,1,0,3,2,1,1,0,1,0,2,0,0,1,1,0,0,1,0,3,3,1,2,1,1,0,0,1,0,0,3,0,2,
-    1,0,1,2,0,0,1,0,2,0,0,0,1,0,0,0,2,0,0,1,2,0,0,0,2,1,1,1,3,2,2,2,1,0,0,0,0,0,1,3,1,1,2,0,3,0,0,1,0,3,3,1,0,1,
-    1,0,0,1,0,1,3,2,0,0,0,1,1,1,3,2,1,0,1,2,0,3,1,1,0,1,0,3,3,3,3,1,1,0,3,1,1,0,0,3,0,0,1,0,2,0,1,0,2,0,0,1,3,2,
-    3,0,1,1,0,2,1,2,0,2,0,0,1,1,1,3,1,1,0,2,3,2,2,3,2,2,0,0,0,3,0,0,1,1,0,2,2,0,1,1,1,1,1,3,2,1,0,2,1,2,2,2,1,2,
-    1,1,1,1,1,2,0,0,1,0,1,3,2,3,3,0,2,2,3,0,0,0,1,1,1,2,2,0,1,0,3,1,3,3,0,1,3,0,1,0,0,3,1,1,1,0,0,0,2,1,0,2,1,0,
-    0,1,3,1,2,2,1,0,1,0,2,1,2,1,3,1,0,0,3,3,0,3,0,3,0,2,1,1,0,2,0,1,1,3,0,1,1,2,0,1,1,2,1,0,1,2,1,2,1,3,3,1,0,0,
-    3,1,3,1,1,0,0,0,1,3,2,2,3,1,1,1,0,1,0,2,1,1,1,1,2,0,0,3,3,3,3,2,0,0,0,1,3,1,1,0,0,1,3,0,1,0,3,3,0,2,1,2,1,1,
-    0,3,3,0,2,2,3,0,2,1,1,2,1,0,1,2,0,0,0,0,0,0,3,1,1,1,0,0,0,2,2,2,2,1,0,0,1,1,0,0,3,2,1,1,2,1,0,0,3,1,1,1,0,0,
-    0,1,3,3,1,3,0,1,1,3,0,3,0,2,1,1,2,3,0,0,1,0,0,1,2,0,1,1,0,0,2,0,0,1,0,1,2,3,0,1,1,0,1,1,2,1,1,1,0,1,2,1,1,1,
-    1,0,3,1,0,2,3,1,0,2,1,0,1,1,0,1,1,2,1,2,0,1,0,1,1,1,1,0,0,0,0,1,1,2,0,1,0,0,0,1,1,1,1,2,2,2,1,2,2,2,1,0,0,3,
-    3,0,1,1,1,3,2,1,1,0,0,3,1,2,0,1,2,1,1,1,3,0,0,1,3,0,2,2,2,0,2,1,1,1,1,2,2,0,1,1,0,0,0,3,0,3,1,1,0,1,0,1,0,0,
-    1,1,0,1,2,1,0,2,0,2,1,0,0,2,3,1,0,2,0,3,2,1,1,0,3,2,0,2,0,0,0,1,2,3,2,2,0,3,3,2,2,2,0,3,1,1,0,3,1,1,1,1,1,0,
-    0,1,1,1,1,1,1,0,3,0,0,1,0,0,1,0,2,2,2,1,2,0,1,1,0,0,1,0,2,2,1,2,1,1,1,0,0,0,3,0,0,1,2,1,0,1,0,0,2,1,0,1,2,0,
-    3,0,1,2,0,0,1,1,1,3,0,0,0,3,1,0,1,1,3,1,1,0,0,0,1,0,1,1,1,0,2,1,1,1,1,2,1,0,2,1,2,2,1,0,1,0,1,1,1,0,0,0,0,0,
-    3,3,1,0,3,1,2,3,3,0,1,0,0,2,0,1,2,0,2,1,0,0,1,0,2,1,3,0,1,1,0,2,2,1,1,0,0,2,0,3,2,1,2,1,0,1,1,1,3,0,1,0,0,2,
-    1,1,0,1,1,0,0,0,1,0,0,1,1,0,0,0,0,0,0,0,0,2,0,0,0,1,0,0,3,0,3,1,0,2,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,
-    0,0,0,0,0,3,1,0,0,3,0,0,0,0,1,0,0,0,3,2,0,0,1,0,1,0,2,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,1,1,0,3,0,0,0,0,0,0,0,2,
-    0,0,0,0,0,0,1,0,0,1,0,0,2,3,0,0,1,1,0,0,0,0,0,1,0,0,1,0,1,0,0,0,0,1,0,0,0,0,1,0,0,0,2,2,1,0,0,0,0,0,2,0,0,2,
-    0,0,1,1,1,0,3,0,1,0,1,0,0,0,0,0,2,1,0,0,0,3,2,0,0,0,0,0,2,0,0,0,0,1,0,0,1,0,0,1,0,0,2,0,0,0,0,1,1,1,0,0,3,1,
-    0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,3,0,2,0,0,2,1,0,1,0,1,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,0,0,0,0,0,
-    0,0,0,3,1,1,0,2,0,3,0,0,0,3,0,0,1,1,3,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,0,1,0,2,0,0,0,1,
-    0,0,3,3,0,0,0,0,0,0,0,0,0,3,1,0,0,0,0,0,0,0,0,0,0,1,3,0,1,3,0,3,0,2,0,0,0,1,0,0,0,0,3,1,0,0,0,0,0,0,0,0,0,2,
-    1,0,0,0,0,0,0,0,0,0,3,0,0,0,1,0,0,1,1,0,0,2,1,3,0,0,0,2,1,0,0,0,0,0,0,1,0,1,0,3,1,0,0,0,1,0,3,0,0,0,2,0,2,0,
-    2,0,1,0,1,0,2,0,0,0,3,0,0,0,0,3,0,0,0,0,0,0,1,0,1,0,1,0,0,2,3,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,1,1,2,0,2,0,0,
-    0,1,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,3,1,2,0,0,0,0,0,1,0,2,0,0,0,0,0,0,1,1,0,0,1,0,0,0,0,0,0,0,0,0,3,0,
-    0,3,2,0,3,0,0,0,0,1,3,1,0,0,0,0,2,0,0,0,1,1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,2,0,0,0,1,0,0,2,0,0,0,2,2,0,0,
-    0,0,0,1,2,0,0,0,0,0,0,0,0,0,1,0,0,0,2,0,0,0,1,1,0,0,1,0,0,0,0,0,0,2,0,0,0,2,0,3,0,2,0,0,0,3,0,0,0,0,0,1,0,0,
-    0,0,0,0,2,0,0,0,0,1,1,0,1,0,0,0,0,1,0,1,0,0,0,0,3,0,1,2,0,0,0,1,0,1,0,0,1,1,0,0,0,1,0,0,1,1,0,2,0,0,0,0,2,1,
-    0,0,2,1,0,0,1,0,0,0,0,0,0,0,1,0,0,0,1,2,0,0,1,0,0,2,0,0,2,0,0,0,0,0,0,0,0,0,0,3,0,1,0,0,0,0,0,0,0,1,0,0,1,0,
-    1,2,0,0,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,1,0,0,0,1,1,0,0,0,0,0,1,0,0,0,1,0,3,0,0,0,2,0,0,0,0,0,0,3,1,0,0,0,0,
-    0,3,0,0,0,1,0,0,0,1,0,1,0,3,0,0,1,0,0,0,0,3,0,0,0,0,0,0,0,0,0,0,0,1,2,0,0,0,0,0,0,0,0,0,3,1,0,0,0,0,2,0,1,0,
-    0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,2,0,0,0,0,0,1,0,2,0,1,0,0,0,0,0,0,2,0,0,1,3,0,0,0,0,0,1,0,0,1,0,0,0,
-    0,0,0,0,2,0,0,0,2,3,0,0,0,0,2,2,0,0,0,0,0,0,1,0,0,0,1,1,0,0,1,0,0,1,0,0,1,0,0,0,0,0,0,1,0,0,3,0,0,0,0,0,0,0,
-    3,0,0,1,0,1,1,1,0,0,0,0,1,0,0,0,1,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1,0,2,0,0,
-    1,0,1,1,1,0,0,0,0,0,0,0,0,2,0,0,0,0,1,0,0,1,0,0,0,0,0,1,0,1,1,0,0,2,0,0,0,3,0,0,0,0,1,0,0,0,2,2,0,0,2,1,0,0,
-    0,0,0,0,0,0,0,0,0,0,0,0,2,1,1,0,0,1,0,2,0,0,0,0,0,0,0,1,0,0,0,0,1,0,0,0,0,0,1,0,1,0,1,0,1,0,1,0,0,0,0,1,0,0,
-    0,0,1,0,0,0,0,1,0,0,0,0,1,2,0,1,2,2,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,3,1,3,0,0,1,0,0,0,0,3,0,0,0,0,0,0,0,0,1,
-    0,2,3,0,0,0,1,2,1,1,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,2,1,0,0,0,0,0,1,0,0,0,1,1,0,0,0,3,0,1,1,1,0,0,0,0,1,0,0,
-    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,0,0,0,0,1,0,0,0,0,0,0,1,1,0,1,0,1,0,1,0,0,0,2,2,1,0,0,1,0,0,1,
-    0,0,0,2,0,0,1,0,1,0,0,0,0,1,0,1,0,2,0,1,1,2,0,0,1,0,0,0,0,0,2,0,0,0,1,0,2,0,1,0,0,3,0,1,1,0,1,0,0,0,0,0,0,0,
-    2,0,0,3,1,0,0,1,1,0,0,0,0,0,0,0,1,1,0,0,0,0,0,2,0,0,1,0,0,1,0,0,0,0,2,1,0,2,2,0,0,0,1,0,0,0,1,0,0,0,0,1,0,1,
-    0,2,1,0,0,1,0,0,0,0,1,0,0,1,2,1,0,1,1,0,2,0,0,0,0,0,1,1,2,0,0,0,1,0,3,0,1,0,2,0,0,0,1,3,0,0,0,1,0,1,0,1,1,0,
-    0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1,0,2,2,0,0,1,3,1,1,1,1,0,0,0,0,0,0,1,2,0,0,1,0,0,0,0,0,1,2,0,1,0,0,
-    0,0,2,0,0,1,0,0,0,1,0,0,1,1,0,1,0,0,1,0,0,0,0,0,0,1,3,0,0,2,1,1,3,1,1,0,0,0,3,0,0,0,1,0,1,0,0,0,2,0,0,0,0,0,
-    0,0,1,0,0,0,0,1,1,0,0,1,1,2,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,1,0,1,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,1,0,0,
-    0,1,0,0,0,2,0,2,1,0,0,1,0,2,0,1,0,0,0,0,0,0,0,0,0,0,3,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,1,0,1,1,0,0,0,0,0,3,1,
-    0,1,0,0,0,0,0,0,0,1,0,0,0,1,0,1,0,0,3,2,0,0,1,1,0,0,2,0,0,0,0,1,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,2,0,1,0,1,0,0,
-    0,0,2,0,0,0,2,1,0,0,0,0,1,3,0,1,0,2,1,1,2,1,0,1,0,0,0,0,0,1,0,0,2,0,0,0,1,0,1,0,0,0,0,0,0,1,0,3,0,0,0,0,0,1,
-    0,0,0,1,1,1,0,0,0,0,0,3,2,0,0,2,3,0,0,1,0,0,0,2,0,1,0,0,0,2,0,0,0,1,0,0,1,2,0,0,0,1,0,1,0,1,0,0,0,2,0,0,0,0,
-    0,0,0,0,1,0,1,0,1,0,0,0,0,1,0,0,0,0,0,0,1,0,0,1,3,0,0,0,0,0,0,0,0,0,2,0,0,0,1,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,
-    1,0,0,0,2,0,1,1,0,1,0,1,0,1,0,3,0,0,1,1,1,1,1,0,0,0,1,0,0,0,0,0,3,2,0,3,0,2,0,0,0,0,2,2,1,0,0,0,3,0,1,0,0,1,
-    0,0,0,0,1,0,0,2,1,0,2,0,0,2,0,1,0,2,2,0,1,0,0,0,0,0,0,0,2,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1,0,1,2,0,0,0,0,0,
-    0,0,0,1,1,0,0,0,0,1,0,1,1,0,0,1,0,0,0,0,0,0,0,3,0,3,1,2,1,2,2,1,2,3,0,0,2,0,1,1,3,0,0,1,0,1,1,0,0,1,0,2,0,0,
-    0,1,2,1,3,2,0,3,1,0,0,3,0,0,0,0,2,1,0,2,3,1,0,1,1,1,0,0,0,2,0,0,3,0,0,0,0,0,1,0,1,0,2,1,0,3,1,0,0,0,0,2,1,1,
-    1,3,0,0,1,0,1,1,0,0,0,0,0,0,0,2,0,0,0,0,2,1,0,0,3,0,0,2,1,0,0,0,1,0,0,1,0,0,0,0,1,2,0,0,1,1,0,1,1,0,0,0,0,0,
-    1,3,0,0,0,1,0,3,0,2,0,0,0,3,2,1,1,2,0,0,2,0,0,0,0,0,0,0,0,2,0,0,0,0,1,0,2,1,2,1,0,3,2,0,0,0,0,0,0,2,1,0,0,0,
-    3,2,0,1,0,0,0,3,0,0,0,2,0,1,1,0,3,0,1,3,0,1,1,2,0,0,1,1,1,0,1,0,3,1,0,0,1,0,0,1,1,2,1,0,0,0,0,1,1,0,1,0,0,0,
-    2,1,0,0,0,0,1,0,1,2,2,3,0,0,0,2,1,0,0,3,3,2,0,0,2,1,0,1,1,0,0,0,0,0,0,0,1,0,0,1,2,1,1,3,1,2,0,0,0,1,0,3,1,1,
-    0,0,1,0,2,0,0,0,0,0,2,1,0,1,0,3,0,0,1,0,0,0,2,0,0,0,0,0,3,0,0,1,1,0,0,0,2,1,0,0,0,1,0,2,3,3,0,0,0,0,0,3,3,0,
-    1,1,0,2,0,0,0,0,2,1,0,1,0,0,0,0,1,0,0,3,0,0,3,1,1,3,2,2,0,3,0,0,1,1,0,0,0,1,0,1,0,2,0,0,0,2,0,2,2,0,1,0,0,0,
-    2,1,3,1,0,0,3,1,1,0,0,2,2,1,0,0,1,3,0,0,0,0,2,1,1,2,2,1,1,1,0,1,3,1,2,1,0,0,1,1,0,0,1,0,0,0,0,1,0,0,1,0,0,2,
-    0,0,1,0,1,2,0,1,0,0,0,0,2,2,3,0,1,1,0,1,0,0,3,1,0,2,0,0,2,0,3,0,0,3,0,0,0,0,0,0,2,2,1,0,2,0,0,2,2,2,1,1,0,0,
-    2,1,0,2,0,2,0,2,1,2,1,1,3,0,0,0,1,2,1,0,1,1,1,0,2,0,0,0,1,1,2,1,1,0,0,2,0,0,1,1,0,0,0,1,1,2,0,0,2,2,1,2,3,0,
-    1,0,0,3,0,0,2,0,0,3,1,1,3,0,1,0,0,0,0,1,1,0,0,0,2,3,0,0,0,0,0,1,0,0,0,3,0,1,0,1,0,3,0,3,0,0,2,1,0,0,0,0,0,1,
-    1,0,1,0,0,0,1,0,1,0,0,1,3,1,1,0,1,0,0,1,2,2,0,0,0,0,3,1,2,0,1,0,0,0,0,0,0,0,2,0,1,1,0,0,0,0,3,0,1,1,0,1,0,0,
-    3,0,0,1,0,3,1,3,1,0,1,0,3,0,2,0,1,1,1,2,1,3,1,1,0,2,0,0,0,0,2,1,0,0,0,0,1,0,0,1,1,3,3,0,1,0,1,0,1,1,1,1,1,1,
-    3,0,1,3,0,1,1,0,1,0,0,1,2,2,0,0,0,0,0,0,0,2,1,1,0,0,0,0,0,0,1,0,0,1,0,1,1,1,1,3,2,0,3,2,3,1,2,0,0,0,0,1,1,0,
-    0,0,0,0,0,2,1,1,0,0,3,1,0,3,0,2,0,0,0,1,1,0,0,2,0,0,0,2,0,0,1,0,0,0,1,1,3,0,0,0,1,2,1,0,1,0,1,0,2,2,1,1,2,2,
-    2,0,1,0,1,2,2,0,1,1,1,0,2,2,0,1,1,0,1,0,1,1,0,0,0,0,0,1,2,0,0,0,2,0,0,1,1,2,0,0,1,2,1,3,3,0,2,1,0,0,0,1,0,1,
-    0,1,0,0,0,0,1,1,0,2,3,3,0,0,0,0,1,1,2,0,0,0,3,0,2,1,1,1,0,2,0,1,0,0,0,0,2,0,2,0,0,3,0,0,2,2,1,0,0,0,1,0,0,3,
-    2,0,0,1,2,2,0,1,2,0,1,1,0,0,0,3,1,3,0,1,0,0,2,0,0,1,1,0,0,1,0,0,1,0,2,2,1,2,0,1,0,2,1,1,0,1,0,0,2,0,3,2,0,0,
-    0,2,1,0,2,2,3,1,1,1,0,1,0,0,0,1,0,0,2,1,0,0,1,1,0,0,0,0,1,1,0,1,0,1,0,2,2,0,0,3,0,0,0,0,2,1,0,0,3,2,1,0,2,0,
-    2,3,1,0,0,0,3,2,1,1,1,1,1,1,0,1,1,1,0,1,1,2,0,0,0,2,2,0,1,3,0,1,1,1,1,0,2,0,0,1,0,0,3,2,1,0,0,2,0,1,0,0,2,2,
-    0,2,0,0,1,0,0,0,1,1,3,0,1,0,0,0,1,0,1,2,1,1,0,0,0,1,1,0,2,2,1,0,1,2,0,2,2,2,3,1,2,2,0,0,0,1,3,1,0,1,1,3,1,0,
-    0,0,2,0,2,0,3,1,1,2,0,1,0,1,0,0,0,1,2,2,0,3,0,2,1,1,0,0,3,2,1,1,0,0,0,2,1,0,0,1,1,0,0,0,3,1,2,2,0,0,1,0,1,0,
-    1,2,0,1,1,0,1,0,1,0,1,0,0,0,1,0,0,0,1,0,1,0,1,0,2,0,1,0,1,0,0,0,0,3,1,2,0,1,0,2,0,1,0,2,0,1,2,2,3,2,0,1,0,2,
-    1,0,0,0,0,0,1,1,0,0,3,0,0,0,0,0,0,0,1,2,1,0,0,1,1,2,0,0,0,1,0,3,3,3,0,1,0,0,0,1,1,1,0,3,1,1,0,0,1,0,1,0,1,0,
-    0,1,3,1,2,3,3,1,0,2,1,1,0,0,0,1,0,1,1,2,0,0,0,0,1,1,1,0,3,3,0,1,1,1,0,0,1,1,0,2,1,1,0,0,2,1,1,3,2,1,1,2,1,3,
-    3,1,0,2,2,1,0,1,0,0,0,1,1,1,1,0,2,1,3,1,1,2,3,0,0,0,3,1,2,1,2,0,0,0,2,1,3,0,1,1,3,0,0,0,1,3,1,1,1,1,1,0,1,1,
-    1,2,2,1,0,2,2,1,2,1,0,1,2,1,1,1,1,0,1,1,0,2,1,2,2,2,0,3,1,0,0,1,0,2,1,1,0,0,0,1,1,3,1,0,0,2,0,0,0,1,0,0,0,2,
-    3,0,0,0,2,2,3,1,0,1,0,0,0,3,2,2,1,1,2,0,0,1,0,0,0,0,1,0,1,0,0,2,2,1,3,2,0,3,0,1,3,1,1,0,0,2,2,0,2,0,2,2,1,1,
-    1,2,0,0,0,1,1,0,0,2,3,0,1,1,2,1,0,0,1,1,0,0,1,2,0,0,0,1,1,0,0,2,0,2,2,1,2,1,1,0,0,0,0,0,3,2,1,0,1,0,1,0,2,1,
-    1,1,0,0,0,1,3,1,1,2,1,1,1,3,0,2,1,2,2,1,0,3,1,0,0,0,0,0,2,1,0,0,0,0,3,0,0,2,0,2,2,1,1,0,0,0,0,0,1,1,1,0,0,0,
-    3,1,2,2,0,0,1,0,1,1,3,0,0,2,1,1,0,1,0,0,1,2,1,2,0,1,0,1,2,1,1,1,1,3,0,0,1,3,0,1,0,0,0,1,1,0,0,3,1,2,1,1,2,1,
-    1,2,0,0,3,0,0,1,1,3,1,1,0,0,1,3,1,1,0,0,2,1,1,1,0,1,0,1,2,0,2,2,0,1,2,0,1,1,0,0,0,0,1,0,0,0,1,3,0,3,1,1,0,0,
-    1,0,0,0,1,0,1,0,1,0,0,1,0,3,1,1,1,3,0,1,0,2,0,0,0,2,1,0,3,3,0,0,0,0,0,1,0,0,2,2,0,3,2,2,1,1,1,1,0,1,0,2,0,1,
-    0,1,0,0,0,1,0,0,1,1,2,0,3,0,1,1,1,0,0,1,2,1,1,1,2,0,2,1,1,0,1,0,2,0,1,1,1,1,0,1,2,0,2,0,1,0,0,0,0,0,3,0,1,0,
-    1,2,1,1,2,0,1,0,0,1,1,1,0,2,0,1,0,3,1,0,0,0,1,1,0,1,1,0,0,1,0,0,0,0,3,0,3,2,1,2,1,0,1,0,2,1,1,0,0,0,0,0,1,0,
-    0,0,0,1,0,2,1,0,3,2,1,3,2,0,0,2,2,0,0,1,2,0,2,0,0,1,0,0,2,0,3,0,0,0,0,2,1,0,1,0,0,1,1,1,2,1,1,0,0,0,1,2,0,1,
-    2,1,0,1,3,1,1,0,2,0,0,1,1,0,0,0,0,1,0,1,0,0,1,0,0,2,0,0,0,0,2,0,2,1,2,2,0,0,1,0,0,0,0,1,0,0,2,1,1,0,0,1,0,0,
-    0,0,1,1,0,0,0,1,0,3,0,1,3,2,0,1,0,0,0,2,0,1,1,3,1,0,2,1,1,0,0,0,2,0,1,1,0,0,0,1,0,1,1,1,0,0,0,0,0,3,0,0,0,0,
-    1,0,0,0,1,0,1,1,2,1,2,1,0,0,1,0,1,0,1,1,1,2,0,2,0,0,3,1,0,0,0,0,1,0,1,0,0,0,0,0,0,0,1,0,0,2,1,0,1,2,0,0,0,1,
-    2,0,1,1,0,0,0,1,0,3,0,0,2,0,0,2,0,1,0,1,1,0,0,0,2,0,0,0,0,0,0,3,2,0,0,0,1,0,0,1,0,0,1,0,1,0,0,1,0,0,1,0,0,1,
-    0,0,3,1,0,1,0,0,0,0,1,0,2,2,2,0,1,0,2,0,1,2,2,0,0,2,0,0,0,1,1,0,1,0,1,0,0,0,0,1,1,0,1,0,0,0,0,1,1,1,0,0,1,0,
-    0,0,0,1,0,0,0,0,1,2,0,2,0,3,0,0,0,0,0,0,3,0,1,2,0,0,0,1,2,0,1,0,0,2,0,0,0,1,1,0,0,0,1,1,0,0,0,3,0,0,1,1,0,1,
-    2,1,0,0,0,0,3,3,0,1,1,0,3,0,0,1,0,3,1,2,0,0,0,0,1,1,0,0,0,1,3,0,0,2,3,0,0,2,1,0,1,0,0,0,1,0,0,2,1,0,0,0,0,1,
-    0,0,0,1,0,1,3,1,1,0,0,1,0,1,0,1,1,0,2,0,1,3,1,0,0,2,0,0,1,1,0,2,2,1,1,2,0,0,0,0,1,1,1,1,0,0,0,1,1,0,3,0,1,0,
-    0,0,1,0,1,0,0,0,2,0,3,0,1,1,2,0,0,0,0,3,0,0,2,0,0,0,1,1,0,3,0,1,1,0,2,0,2,1,0,1,1,1,2,0,0,0,2,1,0,1,0,1,1,2,
-    1,1,1,0,1,0,0,3,2,0,0,2,0,0,0,2,0,0,2,1,1,0,0,1,2,2,0,0,2,0,0,0,1,1,0,0,0,0,0,0,0,0,3,2,1,0,2,0,1,1,1,0,0,1,
-    0,1,1,1,2,0,0,0,2,1,0,1,0,2,3,0,1,0,0,2,1,0,2,0,1,3,0,2,1,1,1,1,0,0,0,0,1,1,0,0,1,1,0,0,0,1,0,1,0,0,2,2,1,0,
-    2,3,0,0,0,1,0,1,2,0,0,1,1,1,0,0,1,0,0,0,0,0,0,0,0,0,1,2,1,0,0,0,1,0,0,0,0,2,2,1,0,1,0,3,2,3,0,0,1,3,1,0,2,1,
-    0,1,1,0,1,0,1,0,2,0,0,0,0,0,0,0,1,0,0,1,1,1,1,3,0,0,0,0,3,0,1,2,1,0,0,0,1,1,0,0,0,0,0,2,1,0,0,0,2,0,2,0,1,0,
-    0,0,2,0,0,1,2,1,1,3,1,1,0,1,1,0,0,0,1,0,1,2,1,2,0,1,1,1,0,0,0,0,0,0,1,1,0,0,3,0,0,1,0,2,1,0,0,1,2,0,1,2,1,1,
-    1,0,1,0,2,2,0,0,1,0,1,1,0,1,0,0,1,0,0,0,0,0,0,2,0,1,0,1,1,2,0,0,1,0,1,1,1,1,0,1,0,1,0,1,0,2,0,0,0,2,0,0,1,2,
-    3,0,1,0,1,0,0,1,1,0,0,0,2,1,0,2,0,2,0,0,1,2,1,1,1,1,0,1,0,0,0,0,0,1,0,1,0,0,3,1,0,0,1,1,1,0,0,1,1,0,1,1,1,0,
-    1,1,0,0,1,1,1,0,1,2,1,1,1,0,1,0,0,0,1,0,1,1,1,1,3,0,0,0,0,2,0,1,0,0,2,1,0,0,0,0,0,1,0,0,1,2,0,2,0,1,1,0,0,0,
-    0,0,3,0,1,0,0,0,2,3,0,1,1,2,0,0,0,1,1,1,0,0,0,0,0,0,0,0,1,0,0,2,0,0,1,0,0,0,1,0,2,0,0,2,3,0,0,2,0,0,1,1,0,2,
-    0,0,2,0,2,2,0,0,0,1,0,0,0,1,0,2,0,3,0,0,0,1,0,0,1,2,1,0,2,0,0,1,0,0,0,1,0,1,0,0,0,0,0,1,0,1,0,0,0,0,1,0,0,1,
-    0,0,0,2,2,0,3,1,1,2,0,1,0,0,0,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,1,1,0,0,0,2,1,3,3,0,0,3,0,0,0,0,3,0,0,1,0,3,0,0,
-    2,1,0,2,0,0,0,0,2,2,0,0,0,0,1,1,1,1,0,1,1,0,0,3,1,0,0,0,2,2,2,2,0,0,0,1,2,0,0,1,0,1,0,0,2,3,0,0,2,1,1,3,0,0,
-    2,1,0,3,1,0,1,0,0,0,0,2,0,0,1,0,1,0,1,2,2,2,0,1,0,0,0,0,1,0,1,2,0,0,1,1,0,3,0,3,3,1,1,1,0,0,0,0,3,2,0,0,1,1,
-    1,0,0,0,1,2,2,0,0,0,1,0,0,1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,3,1,0,1,0,0,1,2,0,0,0,1,1,0,0,0,3,3,1,2,0,0,1,1,
-    0,0,0,1,1,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,0,0,1,1,0,0,2,0,0,0,1,1,0,0,0,2,0,2,0,1,0,2,0,1,0,3,0,0,2,0,3,0,0,1,
-    0,3,0,1,0,1,0,0,3,0,1,0,1,0,0,0,0,1,1,0,0,2,0,0,1,1,0,2,0,0,0,2,0,0,3,3,0,0,1,0,3,0,0,0,0,3,1,1,0,0,1,0,0,1,
-    0,1,1,1,3,0,0,0,3,0,0,2,1,0,0,2,0,0,1,0,1,1,0,0,0,0,0,0,1,0,3,2,0,0,1,0,2,0,0,2,0,0,3,1,1,0,1,0,0,1,0,0,0,0,
-    1,2,2,0,0,3,1,1,0,1,1,0,0,0,0,1,0,0,0,0,0,0,1,0,3,1,0,0,0,1,2,0,0,0,0,0,2,0,3,0,1,1,3,0,0,1,0,3,0,1,0,0,1,0,
-    2,1,1,1,2,1,0,3,3,0,0,2,0,0,0,0,0,0,0,1,0,1,0,1,0,0,3,2,0,3,0,0,1,0,0,1,0,1,1,0,0,0,0,2,1,0,0,2,0,0,1,1,1,3,
-    0,2,2,1,0,0,1,0,0,1,0,0,0,0,0,0,2,2,0,0,1,0,0,1,0,1,0,1,0,0,3,0,0,1,2,1,3,0,0,0,0,1,3,0,1,0,0,1,2,0,1,0,1,2,
-    2,1,0,0,1,1,0,0,1,1,1,1,0,0,1,0,0,2,0,0,0,1,0,0,1,2,1,0,3,1,0,0,0,1,0,2,2,0,0,1,0,0,0,0,0,0,2,1,0,0,0,0,1,0,
-    0,1,1,0,0,0,0,1,0,0,0,3,2,0,0,0,0,3,0,1,1,1,0,3,1,0,0,0,0,0,2,0,1,0,0,0,1,0,0,0,1,1,2,1,0,0,1,0,0,1,2,3,0,0,
-    0,0,3,1,2,2,0,0,0,0,0,0,0,1,1,1,0,1,1,1,0,0,0,3,0,1,1,0,0,0,2,0,0,0,0,1,1,1,0,0,1,0,0,0,0,0,2,0,0,3,0,1,0,0,
-    1,1,0,0,0,0,2,0,0,0,1,0,2,0,0,0,1,3,1,1,0,1,1,1,0,1,0,2,0,1,1,0,2,2,0,0,1,0,0,1,1,0,0,0,1,0,0,0,0,0,0,2,1,0,
-    0,0,0,1,0,0,0,2,0,0,0,0,0,0,0,3,1,1,0,3,0,0,0,2,0,0,0,3,0,0,0,2,0,0,0,0,1,0,0,0,2,1,0,0,1,2,0,2,1,0,0,1,0,2,
-    0,1,0,0,0,0,0,0,0,1,1,0,3,0,0,0,1,1,2,0,0,2,2,0,1,2,1,0,3,0,2,0,1,1,2,0,2,0,1,2,0,0,1,0,1,0,1,0,0,0,1,0,1,0,
-    0,0,0,0,0,0,1,0,2,0,0,1,1,0,0,1,0,0,2,3,1,1,0,1,0,2,0,0,1,0,0,1,0,0,0,0,1,1,0,1,2,2,0,0,0,0,2,2,1,0,0,0,2,0,
-    0,0,0,0,0,1,0,0,1,0,0,2,1,0,3,3,1,1,3,0,0,1,0,0,2,0,0,1,0,0,1,0,3,0,0,0,0,1,2,1,0,1,0,0,0,0,0,1,1,1,0,0,1,1,
-    0,0,0,1,0,1,0,0,1,0,0,1,1,0,1,0,0,0,0,1,1,0,0,0,2,0,0,0,0,0,0,0,2,0,2,0,1,1,1,0,0,0,1,0,1,0,1,0,0,0,0,0,1,0,
-    0,1,0,0,0,1,0,0,2,1,0,0,1,0,0,3,0,0,1,1,3,1,0,0,1,1,1,0,1,1,1,0,2,2,0,0,0,1,0,1,0,0,0,0,3,1,1,1,0,3,0,1,0,0,
-    0,0,1,0,2,2,0,0,0,0,2,0,2,0,1,0,0,0,0,1,0,1,0,1,0,1,0,1,1,1,0,1,0,1,0,0,0,0,0,1,0,0,0,0,2,0,0,0,0,0,0,0,0,0,
-    0,0,2,0,1,1,0,0,1,0,0,1,0,3,3,0,2,1,0,0,1,0,1,1,1,0,0,3,0,0,0,0,2,0,3,0,0,1,1,1,1,0,1,0,1,0,0,1,1,2,1,0,0,0,
-    1,0,0,0,1,2,0,0,0,0,1,0,0,0,0,2,0,0,0,0,2,3,1,1,0,0,0,0,0,0,0,1,0,1,0,0,1,0,1,0,0,0,0,0,2,0,0,1,0,0,0,0,0,0,
-    2,0,2,0,0,1,0,0,0,1,0,2,1,1,0,1,1,1,0,3,0,0,1,0,2,0,0,2,0,1,0,0,0,1,0,0,0,0,1,0,1,0,0,1,0,0,0,0,0,0,1,0,0,2,
-    0,1,0,0,0,0,0,0,2,0,1,0,1,0,2,1,1,0,0,1,0,1,0,0,0,1,1,0,0,0,0,0,1,1,2,0,2,2,0,1,0,0,0,1,0,0,0,1,1,1,0,1,0,0,
-    0,0,1,1,2,2,1,0,2,0,2,0,1,1,0,0,1,0,0,0,2,0,1,0,0,1,0,0,1,1,1,0,0,1,1,1,0,2,0,0,0,1,1,0,0,0,0,0,0,0,1,1,2,1,
-    0,0,2,0,1,1,1,0,0,0,2,0,3,0,1,0,2,0,0,0,1,1,0,0,0,1,0,0,0,1,2,1,3,2,1,0,2,0,0,1,0,0,2,0,0,0,1,1,0,1,0,0,0,1,
-    2,1,0,2,0,0,0,2,1,2,0,1,1,0,0,1,1,2,1,0,1,0,0,0,1,1,2,2,0,1,0,0,1,0,1,0,0,1,0,0,0,0,0,0,1,2,1,0,0,0,0,1,0,0,
-    0,0,0,0,1,0,1,0,0,2,0,0,0,0,1,1,1,0,0,0,1,2,0,1,0,0,0,1,1,0,1,1,0,0,2,0,0,0,0,1,0,3,0,0,1,2,0,1,0,0,0,1,2,0,
-    1,1,2,1,0,0,0,1,0,1,2,0,0,1,0,1,0,1,1,0,3,1,1,0,1,1,1,0,0,2,1,0,1,1,0,0,0,0,0,1,1,0,0,0,0,1,0,2,0,1,0,2,0,1,
-    0,0,0,0,0,0,1,0,0,0,1,1,1,2,0,1,2,0,1,0,0,0,1,0,0,1,0,0,1,0,3,0,1,1,1,0,0,0,0,0,0,0,0,2,0,0,1,1,0,0,0,2,0,2,
-    0,1,1,0,2,1,0,1,2,2,0,2,1,0,1,0,0,0,0,0,0,0,0,1,1,2,0,1,0,1,1,1,0,0,1,0,0,0,0,0,0,0,2,2,0,3,2,0,0,0,0,0,0,0,
-    1,1,0,1,1,0,2,1,0,0,1,1,0,0,0,1,0,0,2,0,0,0,0,0,0,2,0,0,0,0,1,1,0,0,0,0,0,0,1,1,0,1,0,2,1,0,1,3,0,0,0,1,1,0,
-    3,3,1,0,0,2,0,0,0,0,0,0,0,0,0,0,0,1,1,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,1,2,0,2,1,0,1,0,0,0,0,1,1,2,1,0,0,
-    0,1,1,0,0,0,2,1,1,1,1,0,2,0,1,0,0,1,0,0,1,0,0,0,1,0,1,0,0,0,0,0,2,0,2,0,1,1,0,0,0,0,0,1,0,1,1,1,0,0,0,0,1,0,
-    0,0,0,0,0,0,1,0,0,0,1,1,1,0,0,3,0,0,0,0,1,2,0,1,1,0,2,0,0,0,0,0,0,2,0,1,0,0,0,2,1,0,2,0,0,2,1,1,1,0,1,1,1,0,
-    0,1,1,0,2,0,2,0,0,1,0,2,0,0,0,0,0,0,0,1,0,0,0,1,0,0,1,0,0,2,1,0,3,0,0,1,0,0,0,0,0,0,1,1,0,2,1,1,0,1,0,0,2,0,
-    3,2,0,1,0,2,1,1,3,1,2,1,0,1,0,0,0,0,1,0,0,0,1,1,1,0,1,1,0,3,1,0,1,0,0,0,0,0,0,2,1,0,0,3,0,0,0,0,1,1,0,0,2,3,
-    1,0,2,0,1,1,1,0,0,0,3,1,0,1,1,1,1,1,1,1,1,1,1,1,1,2,1,0,0,0,3,0,1,2,0,0,0,1,0,0,3,0,0,2,0,0,3,2,0,0,1,2,0,0,
-    0,0,1,2,0,1,0,0,1,0,0,0,1,0,3,0,1,0,0,0,0,0,2,1,1,0,0,0,3,1,2,0,2,2,1,0,1,2,1,2,3,1,3,1,1,2,0,0,0,1,3,2,0,1,
-    1,3,0,0,0,0,1,2,3,0,3,1,2,3,0,1,0,0,0,0,0,1,1,2,0,3,0,1,1,0,0,0,3,2,1,1,0,1,0,2,1,1,0,2,3,0,0,0,3,0,1,2,0,0,
-    1,0,1,0,0,2,0,2,0,0,1,1,0,0,1,0,1,0,0,0,0,0,0,0,0,0,1,1,3,0,0,0,1,0,0,0,0,3,1,2,1,1,0,3,1,1,3,3,0,1,3,1,3,0,
-    0,1,0,3,0,1,0,0,0,0,1,0,0,1,1,2,0,0,1,0,1,1,0,2,1,0,0,0,0,2,0,0,0,1,0,3,3,3,1,1,0,0,2,1,0,0,0,3,1,1,0,0,1,0,
-    1,0,1,0,0,1,2,2,0,1,3,0,0,2,1,1,0,1,0,1,1,1,2,1,0,1,0,0,0,2,1,3,3,1,1,1,1,1,1,0,1,1,1,1,1,1,0,0,1,1,1,3,1,0,
-    0,3,1,1,3,1,1,2,1,1,0,1,1,3,0,1,1,1,1,3,2,1,3,1,1,2,3,0,1,0,0,1,1,1,2,0,1,0,2,1,3,0,1,1,3,0,0,0,1,3,0,1,0,0,
-    0,0,2,1,1,1,2,1,0,2,1,0,2,1,0,1,1,0,0,0,1,2,1,1,0,1,0,2,2,2,0,3,1,0,1,2,0,1,1,1,0,0,0,1,1,1,1,0,1,2,0,0,0,3,
-    0,3,0,1,0,0,0,0,2,2,3,2,0,1,0,1,0,3,2,2,1,1,2,0,0,0,0,0,0,0,1,0,2,0,0,1,2,2,3,1,0,0,0,1,3,1,0,0,0,1,2,1,2,0,
-    1,2,1,0,1,1,1,0,0,2,1,0,0,1,3,0,1,0,1,2,1,0,0,1,0,0,2,1,0,1,3,2,1,1,1,1,0,2,2,1,1,0,0,0,0,0,0,0,1,2,0,0,0,0,
-    1,0,2,1,1,1,0,0,0,1,3,1,1,2,0,1,1,0,0,2,2,2,0,1,0,3,0,0,0,0,0,0,2,0,1,0,1,0,3,2,0,1,0,1,2,0,1,0,1,0,0,1,1,2,
-    0,0,0,0,3,1,2,1,0,0,1,0,1,2,3,0,1,1,0,1,0,0,0,0,1,2,0,2,0,1,0,0,2,1,0,1,0,0,0,2,1,1,0,1,0,0,0,0,0,0,1,3,1,2,
-    1,2,1,1,0,2,0,0,3,0,0,2,1,0,1,0,0,2,0,2,0,1,0,1,2,1,1,0,1,1,0,1,2,0,2,2,0,0,2,0,1,1,1,1,0,0,2,0,0,0,1,3,0,3,
-    2,1,0,0,0,0,0,0,1,0,0,1,1,0,0,0,0,3,1,1,0,3,0,1,1,2,0,0,0,2,1,0,3,2,0,3,0,0,0,2,1,0,1,2,0,3,1,2,1,2,1,1,0,1,
-    1,2,0,0,0,2,0,0,0,1,0,0,1,0,1,0,3,1,1,1,1,0,1,1,3,0,1,1,1,0,1,1,1,0,0,1,2,0,1,1,0,1,0,0,1,1,2,0,0,0,0,0,1,1,
-    2,0,0,0,0,2,2,1,3,0,1,0,0,0,1,1,1,2,0,1,0,3,2,0,0,1,1,1,0,1,0,0,3,1,0,0,0,0,3,1,0,1,1,2,0,0,0,1,2,1,0,0,0,0,
-    0,0,0,0,0,0,1,1,0,1,1,0,0,2,1,3,3,0,0,0,2,1,0,1,2,0,2,0,0,1,0,0,0,0,2,0,0,0,0,2,1,1,1,0,0,1,1,1,0,1,2,0,0,0,
-    0,2,0,0,0,0,0,2,0,0,1,0,2,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,2,0,2,0,3,1,0,3,0,0,0,0,1,0,0,0,1,1,0,0,
-    0,0,0,0,0,0,0,0,0,0,1,0,0,3,0,0,0,3,0,0,1,0,2,0,0,0,1,3,0,0,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,1,1,0,2,0,0,
-    0,0,0,0,0,1,1,1,0,0,0,0,1,0,0,0,0,0,0,0,2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1,0,0,0,2,2,0,0,
-    0,0,0,1,3,1,0,2,0,0,0,0,0,1,2,2,3,0,0,0,0,0,0,0,2,2,0,1,0,3,1,0,0,1,0,2,3,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,
-    0,0,0,0,0,0,3,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,3,0,0,3,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,
-    0,0,1,0,0,0,0,0,0,0,0,1,0,3,0,1,1,3,0,2,0,0,0,0,2,0,0,0,0,2,0,1,0,2,0,1,0,0,3,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,
-    0,1,0,2,0,0,0,0,0,0,2,1,0,1,0,0,0,1,0,0,0,3,1,0,0,0,0,0,0,0,0,0,0,2,3,0,2,3,0,0,0,1,0,0,0,1,0,0,0,1,3,0,0,0,
-    0,0,0,0,0,0,0,1,0,1,1,0,0,0,0,0,0,3,2,0,1,0,2,0,0,2,0,0,3,1,0,1,0,0,0,0,1,1,0,1,0,0,0,0,0,0,0,1,2,0,0,0,0,0,
-    3,0,0,0,1,0,0,1,2,0,1,0,0,0,2,0,1,0,3,1,0,0,0,3,0,0,0,0,0,0,0,1,0,0,0,2,0,2,3,0,3,2,0,1,0,0,0,0,0,0,0,0,0,0,
-    0,0,1,2,0,2,0,0,0,0,0,0,0,0,0,0,0,0,0,1,2,0,1,0,0,0,0,0,0,1,0,0,0,0,0,0,2,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,1,
-    1,0,0,0,0,1,3,0,0,0,3,1,2,0,1,0,0,1,3,0,1,0,0,3,2,0,1,1,1,1,0,0,0,0,0,1,1,0,0,0,0,1,0,0,0,0,0,0,0,0,0,2,0,0,
-    2,1,0,0,1,1,0,0,0,0,0,1,3,0,0,2,0,0,1,0,0,0,0,0,0,0,0,0,0,0,2,1,0,0,1,0,0,2,0,1,0,2,0,1,0,0,0,0,0,2,0,0,0,0,
-    1,0,0,0,0,1,2,0,0,0,1,0,0,0,0,0,0,0,3,1,0,0,1,0,0,0,2,0,0,0,0,0,1,0,1,1,0,0,0,0,0,0,0,0,0,3,0,1,0,1,0,0,1,0,
-    0,0,1,0,0,0,2,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,2,0,1,2,0,0,0,0,0,2,0,0,0,0,0,0,0,0,3,2,3,1,0,0,1,1,0,
-    0,1,0,0,0,0,3,0,1,2,0,0,2,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,1,0,1,0,1,1,0,0,0,0,0,0,0,0,0,1,0,2,1,1,1,3,0,0,0,0,
-    0,0,0,0,0,0,0,3,0,0,0,0,2,0,0,0,2,1,0,3,0,2,0,1,0,0,0,1,0,2,0,0,0,0,0,0,0,0,0,1,0,0,3,0,0,0,0,0,0,1,0,1,2,0,
-    0,0,0,0,3,0,1,0,0,0,0,0,1,2,0,0,1,1,0,2,0,1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,2,0,0,1,0,0,1,1,0,0,2,2,0,0,0,1,
-    0,0,1,0,0,1,0,0,0,0,0,0,2,0,0,2,0,3,0,0,0,0,1,1,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,1,0,0,1,1,2,0,
-    0,0,0,0,0,0,0,0,2,0,0,1,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,1,0,2,1,0,0,0,0,2,0,0,0,2,0,0,0,0,0,0,
-    1,0,0,1,0,1,0,2,3,0,3,0,0,0,1,2,0,0,0,1,1,0,0,0,2,0,0,0,0,0,0,1,0,0,0,0,0,1,2,1,0,3,1,0,0,3,0,0,1,0,3,0,0,0,
-    1,3,0,0,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,2,1,0,1,2,0,2,0,0,0,0,1,1,2,2,0,1,0,1,1,1,0,1,0,0,0,0,3,2,1,0,1,1,
-    0,0,0,0,0,1,0,2,0,0,1,0,0,0,0,2,0,0,0,0,1,1,0,1,2,2,0,1,0,0,0,1,2,0,0,2,0,0,0,2,0,1,0,1,3,0,1,1,0,0,0,0,1,2,
-    0,1,1,0,0,0,0,1,1,2,3,0,0,0,2,1,0,0,2,1,0,0,0,0,1,1,0,0,0,1,1,0,0,0,3,0,0,1,0,0,0,1,0,0,0,2,0,0,0,0,3,0,1,2,
-    1,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,2,0,0,0,2,0,0,0,0,2,0,3,0,1,0,2,0,1,0,2,0,0,2,1,
-    3,1,0,1,0,2,0,1,0,0,0,0,1,0,0,0,1,0,0,0,1,1,0,0,1,1,0,0,1,1,0,2,0,0,0,1,0,0,3,3,0,1,0,0,3,1,0,0,0,3,1,1,1,0,
-    1,0,0,0,0,0,0,2,3,0,1,1,0,0,0,1,0,0,0,1,0,0,0,1,3,2,0,1,0,0,1,1,1,0,1,2,1,0,0,0,1,0,0,1,0,2,2,1,1,0,1,0,0,2,
-    0,0,0,2,1,1,1,1,0,2,2,0,0,1,0,0,0,0,0,1,0,1,2,0,0,1,1,1,3,0,0,0,1,1,2,0,1,0,0,0,3,0,1,0,0,1,3,0,0,1,0,3,0,0,
-    1,0,0,0,0,2,1,1,1,1,1,1,3,1,3,1,0,1,0,0,0,1,0,0,1,1,0,3,0,1,2,3,0,2,1,0,0,1,1,0,2,0,0,1,1,0,0,2,1,0,0,1,0,0,
-    0,0,1,1,0,1,0,1,0,0,1,0,0,1,0,0,0,1,0,0,2,2,0,0,1,0,0,1,0,1,0,1,0,0,3,0,1,1,2,1,3,0,1,0,0,1,3,0,1,0,0,1,2,0,
-    1,0,2,1,1,1,1,0,0,1,1,0,0,1,0,0,0,0,0,0,0,1,0,0,1,0,0,0,2,2,1,1,2,1,0,0,0,1,0,2,2,0,0,2,0,0,0,0,1,0,2,0,0,0,
-    1,0,1,0,2,2,1,0,0,0,0,1,0,1,0,2,1,2,0,0,0,2,0,2,0,0,0,2,1,1,0,0,0,1,2,0,1,0,0,0,1,0,0,0,1,0,3,1,0,0,0,0,0,1,
-    1,2,0,0,0,0,2,0,1,2,0,0,0,0,0,1,0,1,0,1,0,1,0,0,0,0,2,1,0,1,1,0,1,0,2,0,0,0,1,1,1,1,1,0,0,0,0,0,0,0,2,0,0,2,
-    1,2,0,0,1,1,0,0,0,0,2,0,0,0,1,0,1,0,0,2,0,2,2,0,0,0,1,1,1,1,1,1,0,1,1,0,1,2,0,0,2,0,1,1,1,1,1,1,1,0,0,0,0,0,
-    0,2,1,0,0,0,1,1,0,0,0,1,0,0,0,0,0,1,0,3,1,0,1,3,0,0,0,1,0,0,1,1,0,0,0,2,0,0,0,0,0,1,0,1,3,1,0,3,1,2,0,0,1,0,
-    0,0,0,1,0,0,1,1,0,0,0,0,0,0,0,1,2,0,0,0,0,1,0,0,0,2,3,1,0,1,1,0,2,1,1,0,1,1,2,0,2,2,0,0,0,0,1,1,0,0,1,0,0,0,
-    0,0,0,0,1,0,0,0,0,1,2,0,1,1,0,1,0,1,1,1,1,0,1,3,2,0,1,1,0,1,1,0,0,0,0,0,0,0,1,0,3,0,2,2,2,3,0,0,0,0,2,1,0,0,
-    0,0,1,0,0,0,0,0,1,1,0,0,1,0,0,2,1,0,2,0,1,1,0,0,1,1,1,0,0,0,0,2,0,0,1,0,2,0,0,2,0,1,2,0,0,1,0,1,1,3,0,0,1,0,
-    0,0,1,2,0,0,0,1,0,2,0,2,1,1,0,0,0,1,1,1,0,0,1,1,2,0,0,0,1,0,0,0,0,2,0,1,2,0,3,2,1,1,1,1,0,0,0,0,1,0,0,1,1,0,
-    0,0,1,0,0,0,0,0,0,0,0,0,2,0,0,1,0,0,0,3,0,1,0,1,3,0,0,0,2,2,1,0,2,0,0,0,0,0,1,0,0,2,0,0,1,0,0,0,2,3,1,1,1,2,
-    0,2,0,0,0,0,1,0,1,2,0,0,1,1,1,0,1,0,1,1,0,0,3,2,0,0,0,2,0,0,0,0,0,2,0,0,0,1,1,0,0,0,0,2,0,0,1,0,2,0,1,1,3,1,
-    1,1,0,0,0,0,1,0,0,0,0,0,2,1,0,2,1,3,3,0,1,2,0,0,1,1,1,1,0,1,0,2,1,0,0,0,2,0,3,0,0,0,1,2,1,0,1,1,0,0,0,0,1,1,
-    1,0,0,0,1,1,0,0,2,1,0,1,0,0,1,0,0,0,1,1,0,0,0,0,3,0,2,2,0,1,0,1,0,0,0,0,1,1,1,0,0,0,1,0,1,0,0,0,1,0,0,1,0,0,
-    0,0,0,0,2,0,1,0,1,1,1,0,0,0,0,0,0,2,0,2,0,2,0,2,0,0,2,2,3,1,0,0,0,2,0,1,0,1,0,0,1,0,0,0,1,0,0,0,0,1,0,0,0,1,
-    1,0,1,2,0,2,0,0,0,0,0,0,2,3,0,0,1,0,2,0,0,0,0,3,0,1,0,0,0,1,0,0,0,0,0,0,3,0,2,0,3,0,0,1,0,1,0,2,0,0,0,1,2,0,
-    0,1,0,0,1,0,2,1,3,3,0,0,2,0,1,0,2,2,0,0,1,0,0,0,1,2,1,0,0,0,0,1,1,0,1,1,0,0,1,0,0,2,0,0,0,0,0,0,0,1,1,0,0,1,
-    1,0,3,1,0,0,2,1,2,1,2,0,1,0,2,1,3,0,0,1,2,0,0,1,0,3,0,0,0,0,0,1,0,2,1,1,0,2,0,2,1,1,1,1,0,0,1,0,0,0,1,2,0,1,
-    0,0,0,2,2,2,0,2,0,0,0,1,2,2,0,0,1,0,0,1,1,0,1,0,0,2,1,0,1,1,2,2,0,2,0,0,0,0,1,0,0,2,1,0,0,0,0,0,2,3,0,0,0,0,
-    0,1,0,0,0,0,0,0,2,0,2,3,1,0,3,0,1,0,0,1,3,0,1,0,1,1,1,0,0,0,0,1,1,0,1,0,1,0,2,1,0,0,0,0,0,0,0,0,2,1,0,0,1,0,
-    0,0,2,0,1,0,3,1,0,0,0,1,0,2,3,0,0,0,0,0,0,0,1,0,1,0,0,1,0,1,2,0,1,1,1,0,0,1,0,1,0,0,0,2,2,1,0,1,0,2,0,2,0,1,
-    1,0,0,1,0,0,0,1,0,0,1,0,0,0,1,0,1,1,0,0,1,0,1,0,0,1,1,0,0,2,0,0,1,0,3,0,1,1,1,0,0,0,0,0,0,1,0,1,0,0,0,1,0,1,
-    0,2,0,2,0,0,0,0,1,1,0,1,0,1,0,1,1,0,0,0,0,0,0,1,0,0,0,0,1,1,0,0,1,1,0,2,0,0,1,0,0,0,0,1,0,0,2,0,0,2,1,1,1,2,
-    1,1,0,1,0,2,1,0,0,0,2,2,1,0,1,0,0,1,1,1,0,1,1,0,0,0,0,0,0,2,1,0,0,1,0,2,0,0,1,1,0,0,0,1,0,1,0,2,2,1,1,2,0,2,
-    0,1,0,0,3,3,0,0,0,2,0,0,0,0,0,0,1,0,0,0,0,0,1,3,0,0,0,2,0,0,0,0,0,0,0,1,1,0,0,0,0,1,1,0,1,1,0,2,1,0,0,0,1,1,
-    2,1,0,0,0,1,2,0,0,0,1,0,1,1,1,0,1,1,0,0,1,0,0,0,1,0,0,0,1,0,1,0,0,0,1,0,1,1,0,0,1,1,0,0,0,0,0,2,0,1,2,1,0,0,
-    0,1,0,1,0,1,0,0,0,0,1,0,0,0,2,0,0,0,0,3,0,0,0,0,1,2,1,0,0,0,2,0,0,0,0,0,0,3,0,0,0,0,0,2,0,0,2,0,1,2,2,0,1,0,
-    3,0,3,0,0,1,1,0,1,0,2,0,0,0,0,2,0,0,1,0,0,1,1,0,0,1,1,0,0,0,1,0,0,0,1,1,0,0,0,0,0,0,0,0,1,1,0,1,0,2,0,1,0,0,
-    0,0,2,0,0,3,0,3,0,2,2,0,2,0,2,0,2,0,0,0,0,0,0,0,0,3,2,0,1,0,0,1,1,1,0,1,0,0,0,0,3,1,0,3,1,1,0,3,0,1,1,0,0,1,
-    0,0,2,2,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,2,1,1,1,0,1,3,1,2,0,0,0,0,1,1,3,1,0,1,0,0,0,3,0,2,1,0,0,0,2,1,3,0,
-    0,0,0,2,0,0,3,0,0,2,1,0,1,0,0,0,0,0,0,1,0,0,0,1,0,1,2,2,0,0,1,0,0,1,1,0,1,1,1,0,1,1,2,2,0,2,3,0,0,3,0,0,1,0,
-    1,1,0,1,0,3,1,0,0,1,0,2,3,1,0,0,1,0,2,0,0,2,0,1,1,1,0,0,0,0,0,1,0,0,0,0,3,2,0,1,0,2,0,3,0,0,0,2,0,0,1,0,3,1,
-    1,2,1,1,2,0,0,0,0,1,0,0,2,0,0,0,2,0,0,0,1,0,0,2,0,0,0,1,1,1,0,1,0,0,0,0,2,1,0,0,0,0,1,0,1,1,0,1,0,1,1,3,0,0,
-    2,3,2,1,0,0,1,1,0,0,0,0,0,0,0,0,0,0,1,0,0,1,1,0,0,0,0,1,1,0,1,1,0,1,1,0,0,2,0,0,2,3,0,1,0,1,1,1,0,0,0,3,0,0,
-    0,0,1,0,1,1,0,0,0,0,3,0,1,0,2,0,0,2,0,0,0,0,0,0,1,2,2,1,0,0,0,0,0,2,2,0,1,3,1,1,1,0,1,0,0,0,0,0,0,2,0,1,0,0,
-    0,2,0,0,0,0,1,0,2,0,0,2,2,2,0,1,0,0,0,0,1,2,0,3,0,0,0,1,2,3,2,0,1,1,0,1,1,1,1,0,0,0,3,1,3,0,0,0,3,1,1,0,1,1,
-    0,0,1,0,0,1,0,2,1,2,1,0,0,3,3,1,1,1,0,0,0,1,0,0,0,3,0,1,0,2,0,1,1,0,0,3,1,2,1,0,0,2,0,1,1,0,1,0,1,3,0,0,2,1,
-    1,0,2,0,0,3,1,3,2,0,1,0,0,0,0,2,1,0,0,0,0,0,2,2,1,2,2,0,0,1,0,1,1,1,1,0,1,0,0,2,1,2,3,2,1,1,1,2,2,0,1,0,0,1,
-    1,0,1,0,1,1,1,0,0,0,2,0,0,1,0,0,3,1,0,1,1,0,1,1,0,0,1,1,0,0,0,1,2,2,3,0,0,0,0,0,0,2,2,0,0,1,1,0,1,0,1,0,3,1,
-    1,1,0,0,1,0,1,1,2,1,0,1,1,0,0,2,0,3,1,0,0,0,0,1,0,1,1,1,0,3,0,0,0,0,0,0,2,0,1,0,1,0,2,0,0,1,0,1,3,0,0,0,0,0,
-    0,0,0,1,0,0,0,0,3,2,1,2,0,0,0,0,1,0,0,0,2,1,0,0,1,0,0,0,1,1,0,0,1,1,0,0,1,1,0,1,1,0,0,3,1,1,1,0,1,0,0,0,0,0,
-    1,3,2,0,1,0,0,2,1,0,0,0,2,0,0,1,2,0,1,0,0,3,0,2,0,0,0,0,2,0,1,0,0,3,0,1,3,0,3,3,0,1,1,0,1,2,0,1,0,1,1,1,0,0,
-    0,0,0,2,0,0,0,0,1,2,0,1,1,2,0,1,1,0,0,0,0,2,1,0,0,3,0,1,0,2,0,0,0,2,1,0,0,1,0,0,0,0,0,1,1,0,0,1,1,0,0,2,0,0,
-    1,1,0,0,0,1,0,1,0,1,1,0,1,1,0,0,1,3,2,1,0,2,0,2,0,0,0,2,2,1,0,1,2,0,1,1,1,0,1,1,2,0,2,0,1,0,1,1,1,1,0,0,0,0,
-    1,0,1,0,0,0,0,0,1,0,0,2,2,0,0,0,0,0,2,0,0,1,0,1,1,2,1,0,1,1,0,0,1,0,0,0,0,1,0,0,1,3,2,0,1,2,2,3,0,0,0,1,1,2,
-    0,0,1,0,1,0,1,0,1,0,0,2,0,1,1,0,0,2,2,0,3,0,0,1,0,1,0,2,0,0,1,1,0,2,0,3,2,0,1,1,0,3,0,1,1,0,1,2,0,2,0,3,0,2,
-    0,1,1,0,1,1,0,1,0,0,0,0,0,0,0,1,1,2,0,3
-  )))
-
-
-
-
-
-
-

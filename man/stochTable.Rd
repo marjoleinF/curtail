@@ -35,19 +35,21 @@
 }
 
 \references{
-  Fokkema, M., Smits, N., Kelderman, H., Carlier, I.V. & Van Hemert, A.M. (2014).
+  Fokkema, M., Smits, N., Finkelman, M. D., Kelderman, H., & Cuijpers, P. (2014). 
   Curtailment: A method to reduce the length of self-report questionnaires while 
-  maintaining diagnostic accuracy. Psychiatry Research 215(2), 477-482.\cr \cr
+  maintaining diagnostic accuracy. Psychiatry Research 215, 477-482. \cr \cr
+  Fokkema, M., Smits, N., Kelderman, H., Carlier, I.V. & Van Hemert, A.M. (2014).
+  Combining decision trees and stochastic curtailment for assessment length 
+  reduction of test batteries used for classification. Applied Psychological 
+  Measurement, 38(1), 3-17.\cr \cr
   Finkelman, M.D., Smits, N., Kim, W. & Riley, B. (2012). Curtailment and stochastic 
-  curtailment to shorten the CES-D. Applied Psychological Measurement, 36(8), 632-658.
+  curtailment to shorten the CES-D. Applied Psychological Measurement, 36(8), 632-658.\cr \cr
 }
 
-%\seealso{\code{\link[lme4]{lmer}}}
-
-\examples{
+\examples{\donttest{
   stochTable(itemscores, 19)
   # try lower gamma values for earlier stopping:
   stochTable(itemscores, 19, gamma0 = .75, gamma1 = .75)
-}
+}}
 
 \keyword{curtail, curtailment}

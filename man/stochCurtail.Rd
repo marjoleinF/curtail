@@ -11,7 +11,8 @@
 }
 
 \usage{
-  stochCurtail(dataset.train, dataset.test = NULL, Xstar, gamma0=.95, gamma1=.95)
+  stochCurtail(dataset.train, dataset.test = NULL, Xstar, gamma0=.95, 
+  gamma1=.95, plot = TRUE)
 }
 
 \arguments{
@@ -30,6 +31,7 @@
   \item{gamma1}{The threshold for the probability, calculated using the 'at-risk'
   training observations,  that the classification decision based on the stochastically
   curtailed version will match that of the full-length instrument.}
+  \item{plot}{Should a histogram of test lengths be plotted?}
 }
   
 \details{
@@ -54,16 +56,8 @@
 
 }
 
-%\references{
-%Fokkema M, Smits N, Kelderman H (2015).
-%  \dQuote{Detecting Treatment-Subgroup Interactions in Clustered Data
-%  with Generalized Linear Mixed-Effects Model Trees}.
-%  \url{http://EconPapers.RePEc.org/RePEc:inn:wpaper:2015-10}
-%}
 
-%\seealso{\code{\link[lme4]{lmer}}}
-
-\examples{
+\examples{\donttest{
   ## obtain a test and training dataset
   set.seed(32061983)
   samp <- sample(1:1000, 500); train <- samp[1:500]
@@ -72,6 +66,18 @@
   stochCurtail(trainingdata, testdata, 19)
   ## try lower gamma values for earlier stopping, but lower accuracy:
   stochCurtail(trainingdata, testdata, 19, gamma0=.75, gamma1=.75)
+}}
+
+\references{
+  Fokkema, M., Smits, N., Finkelman, M. D., Kelderman, H., & Cuijpers, P. (2014). 
+  Curtailment: A method to reduce the length of self-report questionnaires while 
+  maintaining diagnostic accuracy. Psychiatry Research 215, 477-482. \cr \cr
+  Fokkema, M., Smits, N., Kelderman, H., Carlier, I.V. & Van Hemert, A.M. (2014).
+  Combining decision trees and stochastic curtailment for assessment length 
+  reduction of test batteries used for classification. Applied Psychological 
+  Measurement, 38(1), 3-17.\cr \cr
+  Finkelman, M.D., Smits, N., Kim, W. & Riley, B. (2012). Curtailment and stochastic 
+  curtailment to shorten the CES-D. Applied Psychological Measurement, 36(8), 632-658.\cr \cr
 }
 
 \keyword{curtail, curtailment}
