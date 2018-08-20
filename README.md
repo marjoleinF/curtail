@@ -25,7 +25,7 @@ tmp1 <- Curtail(itemscores[501:1000, ], Xstar = 17)
 
 ![](inst/README-figures/README-unnamed-chunk-3-1.png)
 
-The results show the number of observations flagged as 'at risk' or 'not at risk', according to the curtailed and full-length test administration. Also, the number of items administrered is depicted in a histogram. As is always the case with detereministic curtailment, no classification errors with respect to the full-length test decsion are made.
+The results show the number of observations flagged as 'at risk' or 'not at risk', according to the curtailed and full-length test administration. Also, the number of items administrered is depicted in a histogram. No classification errors with respect to the full-length test decesion are made, as is always the case with detereministic curtailment.
 
 We can also obtain some desciptive statistics about the number of items administered and proportion of observations for which the testing was ceased before the full-length test was administered:
 
@@ -41,10 +41,10 @@ tmp1$curtailed.test.length.distribution
 #> [1] 18
 #> 
 #> $proportion.curtailed
-#> [1] 1
+#> [1] 0.76
 ```
 
-We managed to obtain a substantial reduction in test length.But perhaps we can further reduce test length through stochastic curtailment. We use the first 500 observations for training and the next 500 observations for testing:
+We managed to obtain a substantial reduction in test length. But perhaps we can further reduce test length through stochastic curtailment. We use the first 500 observations for training and the next 500 observations for testing:
 
 ``` r
 tmp2 <- stochCurtail(itemscores[1:500,], dataset.test = itemscores[501:1000,], 
@@ -69,7 +69,7 @@ tmp2$curtailed.test.length.distribution
 #> [1] 18
 #> 
 #> $proportion.curtailed
-#> [1] 1
+#> [1] 0.77
 ```
 
 We were able to reduce the number of items administered somewhat, at the cost of four incorrect decisions (out of 500).

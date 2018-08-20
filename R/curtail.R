@@ -57,7 +57,7 @@ Curtail <- function(dataset.test, Xstar, highest = NULL, lowest = NULL,
       mean = mean(dataset.test$currit),
       standard.deviation = sd(dataset.test$currit),
       median = median(dataset.test$currit),
-      proportion.curtailed = sum(dataset.test[,(nitems*2)+1] < nitems) / nobs),
+      proportion.curtailed = sum(dataset.test$currit < nitems) / nobs),
     accuracy = accuracy)
 
   print(accuracy)
@@ -166,7 +166,7 @@ stochCurtail <- function(dataset.train, dataset.test = NULL, Xstar,
       mean = mean(dataset.test$currit),
       standard.deviation = sd(dataset.test$currit),
       median = median(dataset.test$currit),
-      proportion.curtailed = sum(dataset.test[,(nitems*2)+1] < nitems) / nobs),
+      proportion.curtailed = sum(dataset.test$currit < nitems) / nobs),
     accuracy = accuracy)
   
   print(accuracy)
@@ -283,7 +283,7 @@ stochCurtailXval <- function(dataset, Xstar, gamma0 = .95, gamma1 = .95, plot = 
       mean = mean(dataset$currit),
       standard.deviation = sd(dataset$currit),
       median = median(dataset$currit),
-      proportion.curtailed = sum(dataset[,(nitems*2)+1] < nitems) / nobs),
+      proportion.curtailed = sum(dataset$currit < nitems) / nobs),
     accuracy = accuracy)
   
   print(accuracy)
