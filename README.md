@@ -1,7 +1,7 @@
 curtail: an R package for test curtailment
 ==========================================
 
-A curtailed test is a variable-length test, which allows for early stopping of item administration when further items are unlikely or unable to change the final (classification) decision. The package allows for creating and assessing deterministically and stochastically (based on empirical proportions) curtailed tests. In future versions of the package, model-based stochastic curtailment may be added. The package allows for test curtailment through the creation of look-up tables, providing item-specific cut-off values for early stopping of item administration. In addition, the package allows for assessing efficiency (number of items administered to arrive at a final decision) and accuracy (concordance between the final decision based on curtailed and full-length test).
+A curtailed test is a variable-length test, which allows for early stopping of item administration when further items are unlikely or unable to change the final (classification) decision. Package curtail allows for creating and assessing deterministically and stochastically (based on empirical proportions) curtailed tests. The package allows for test curtailment through the creation of look-up tables, providing item-specific cut-off values for early stopping of item administration. In addition, the package allows for assessing efficiency (number of items administered to arrive at a final decision) and accuracy (concordance between the final decision based on curtailed and full-length test).
 
 Example
 -------
@@ -38,6 +38,8 @@ summary(tmp$current.item)
 #>   10.00   17.00   18.00   17.67   19.00   20.00
 ```
 
+The results show the number of observations flagged as 'at risk' or 'not at risk', according to the curtailed and full-length test administration. Also, the number of items administrered is depicted in a histogram. As is always the case with detereministic curtailment, no classification errors with respect to the full-length test decsion are made. However, we did manage to obtain a substantial reduction in test length.
+
 Perhaps we can further reduce test length through stochastic curtailment. We use the first 500 observations for training and the next 500 observations for testing:
 
 ``` r
@@ -64,7 +66,9 @@ summary(tmp$current.item)
 #>    8.00   16.00   18.00   17.37   19.00   20.00
 ```
 
-Indeed, we were able to reduce the number of items administered somewhat. However, this also yielded 4 incorrect decisions (missed at-risk observations). Perhaps we want to inspect test length distributions for at-risk or not-at-risk observations only:
+We were able to reduce the number of items administered only slightly, at the cost of four incorrect decisions.
+
+Perhaps we want to inspect test length distributions for at-risk or not-at-risk observations only:
 
 ``` r
 hist(tmp$current.item[tmp$SCrisk], xlab = "Number of items administered", 
@@ -80,7 +84,7 @@ hist(tmp$current.item[tmp$SCnorisk], xlab = "Number of items administered",
 
 ![](inst/README-figures/README-unnamed-chunk-5-2.png)
 
-If we want to obtain tables with item-specific cutoff values, we can use the Table and stochTable functions:
+If we want to obtain tables with the item-specific cutoff values, we can use the Table and stochTable functions:
 
 ``` r
 Table(itemscores, Xstar = 17)
@@ -105,7 +109,7 @@ stochTable(itemscores, Xstar = 17)
 #> risk        17
 ```
 
-Perhaps we also want to assess the accuracy of decisions based on stochastic curtailment, using leave-on-out cross validation. This can be done using the stochCurtailXval function:
+Perhaps we also want to assess the accuracy of decisions based on stochastic curtailment, using leave-on-out cross validation. This can be done using the stochCurtailXval function. As this is computationally intensive, in this example we only apply the function to the first 250 observations:
 
 ``` r
 stochCurtailXval(itemscores[1:250,], Xstar = 17)
