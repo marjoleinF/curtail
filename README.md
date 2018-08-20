@@ -17,7 +17,6 @@ First, we will apply deterministic curtailment on a subset of 500 observations, 
 
 ``` r
 tmp1 <- Curtail(itemscores[501:1000, ], Xstar = 17)
-#> $risk
 #>              full length
 #> curtailed     at risk not at risk
 #>   at risk         125           0
@@ -50,7 +49,6 @@ Perhaps we can further reduce test length through stochastic curtailment. We use
 ``` r
 tmp2 <- stochCurtail(itemscores[1:500,], dataset.test = itemscores[501:1000,], 
                      Xstar = 17)
-#> $risk
 #>              full length
 #> curtailed     at risk not at risk
 #>   at risk         121           0
@@ -126,7 +124,6 @@ stochCurtailXval(itemscores[1:100,], Xstar = 17)
 
 ![](inst/README-figures/README-unnamed-chunk-10-1.png)
 
-    #> $risk
     #>              full length
     #> curtailed     at risk not at risk
     #>   at risk          11           0
