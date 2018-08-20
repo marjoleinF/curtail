@@ -22,54 +22,57 @@ Curtail <- function(dataset.test, Xstar, highest = NULL, lowest = NULL,
 
   ## Perform the curtailment:
   dataset.test$currit <- dataset.test$currts <- NA
-  dataset.test$Crisk <- dataset.test$Cnorisk <- NA
+  #dataset.test$Crisk <- NA
+  dataset.test$Crisk <- NA
   for (i in 1:nobs) {
     for (j in 1:nitems) {
-      if (is.na(dataset.test$Cnorisk[i]) && is.na(dataset.test$Crisk[i])) {
+      #if (is.na(dataset.test$Cnorisk[i]) && is.na(dataset.test$Crisk[i])) {
+      if (is.na(dataset.test$Crisk[i])) {
         if (dataset.test[i, paste0("test", j)] >= risk.boundaries[j]) {
           dataset.test$currit[i] <- j
           dataset.test$currts[i] <- dataset.test[i, paste0("test", j)]
-          dataset.test$Crisk[i] <- TRUE
+          dataset.test$Crisk[i] <- "at risk"
         } else if (dataset.test[i, paste0("test", j)] <= norisk.boundaries[j]) {
           dataset.test$currit[i] <- j
           dataset.test$currts[i] <- dataset.test[i, paste0("test", j)] 
-          dataset.test$Cnorisk[i] <- TRUE
+          #dataset.test$Cnorisk[i] <- TRUE
+          dataset.test$Crisk[i] <- "not at risk"
         }
       }
     }
   }
-  dataset.test$Crisk[is.na(dataset.test$Crisk)] <- FALSE
-  dataset.test$Cnorisk[is.na(dataset.test$Cnorisk)] <- FALSE
 
   ## Return results:
+  fulllength <- ifelse(dataset.test[ , paste0("test", nitems)] >= Xstar, "at risk", "not at risk")
   accuracy = list(
-    risk = table(dataset.test$Crisk, dataset.test[ , paste0("test", nitems)] >= Xstar, 
+    risk = table(dataset.test$Crisk, fulllength, 
                  useNA = "ifany", 
-                 dnn = c("curtailed: flagged 'risk'","full length: 'at risk'")),
-    no.risk = table(dataset.test$Crisk, dataset.test[ , paste0("test", nitems)] < Xstar, 
-                    useNA = "ifany", 
-                    dnn = c("curtailed: flagged 'no risk'","full length: 'not at risk'")))
-  
+                 dnn = c("curtailed","full length")))
+
   out <- list(
-    item.scores = dataset.test[ , 1:nitems],
-    cumulative.scores = dataset.test[ , (nitems+1):(nitems+nitems)],
-    current.item = dataset.test$currit,
-    current.score = dataset.test$currts,
+    test.results= data.frame(
+      fulllength.decision = fulllength,
+      curtailed.decision = dataset.test$Crisk,
+      current.item = dataset.test$currit,
+      current.score = dataset.test$currts),
     curtailed.test.length.distribution = list(
       mean = mean(dataset.test$currit),
       standard.deviation = sd(dataset.test$currit),
       median = median(dataset.test$currit),
       proportion.curtailed = sum(dataset.test[,(nitems*2)+1] < nitems) / nobs),
-    accuracy = accuracy
-  )
+    accuracy = accuracy)
 
   print(accuracy)
+  
   if (plot) {
     hist(dataset.test$currit, main = "Test lengths", 
          xlab = "Number of items administered")
   }
+  
   invisible(out)
 }
+
+
 
 
 stochCurtail <- function(dataset.train, dataset.test = NULL, Xstar, 
@@ -114,97 +117,71 @@ stochCurtail <- function(dataset.train, dataset.test = NULL, Xstar,
 
   ## Check for every observations whether pkplus and pkmin are >= gamma1 and <= 1-gamma0:
   for (i in 1:nobs) {
-    #dataset.test$plusflag1[i] <- which(dataset.test[i, paste0("Pkplus", 1:(nitems-1))] >= gamma1)[1]
-    ## plusflag1 corresponds to the first item where the proportion of at risk decisions in the at risk dataset
-    ## equals or exceeds gamma1 
-    #dataset.test$plusflag0[i] <- which(dataset.test[i, paste0("Pkplus", 1:(nitems-1))] <= 1-gamma0)[1]
-    ## plusflag0 corresponds to the first item where the proportion of at risk decisions in the at risk dataset
-    ## equals or is lower than 1 minus gamma0
-    #dataset.test$minflag1[i] <- which(dataset.test[i, paste0("Pkmin", 1:(nitems-1))] >= gamma1)[1]
-    ## minflag1 corresponds to the first item where the proportion of at risk decisions in the non-at-risk dataset
-    ## equals or exceeds gamma1
-    #dataset.test$minflag0[i] <- which(dataset.test[i, paste0("Pkmin", 1:(nitems-1))] <= 1-gamma0)[1]
-    ## minflag0 corresponds to the first item where the proportion of at risk decisions in the non-at-risk dataset
-    ## equals or is lower than 1 minus gamma0
     dataset.test$riskflag[i] <- which(dataset.test[i, paste0("Pkplus", 1:(nitems-1))] >= gamma1 &
                                          dataset.test[i, paste0("Pkmin", 1:(nitems-1))] >= gamma1)[1]
     dataset.test$noriskflag0[i] <- which(dataset.test[i, paste0("Pkplus", 1:(nitems-1))] <= 1-gamma0 &
                                            dataset.test[i, paste0("Pkmin", 1:(nitems-1))] <= 1-gamma0)[1]
   }
   
-  #dataset.test$SCrisk <- !is.na(dataset.test$minflag1) & !is.na(dataset.test$plusflag1)
-  #dataset.test$SCnorisk <- !is.na(dataset.test$plusflag0) & !is.na(dataset.test$minflag0)
-  #dataset.test$SCrisk[dataset.test[paste0("test", nitems)] >= Xstar & 
-  #                      is.na(dataset.test$minflag1) & 
-  #                      is.na(dataset.test$plusflag0)] <- TRUE # in case no curtailment took place
-  #dataset.test$SCnorisk[dataset.test[paste0("test", nitems)] < Xstar & 
-  #                        is.na(dataset.test$plusflag0) & 
-  #                        is.na(dataset.test$minflag1)] <- TRUE # in case no curtailment took place
-  dataset.test$currit <- dataset.test$currts <- dataset.test$SCrisk <- dataset.test$SCnorisk <- NA
+
+  dataset.test$currit <- dataset.test$currts <- dataset.test$SCrisk <- NA
   for(j in 1:nobs) {
     if (is.na(dataset.test$riskflag[j]) && is.na(dataset.test$noriskflag[j])) {
       ## Then no curtailment was performed. Get decision based on full test score and set currit <- nitems
-      dataset.test$SCrisk[j] <- dataset.test[j, paste0("test", nitems)] >= Xstar
-      dataset.test$SCnorisk[j] <- dataset.test[j, paste0("test", nitems)] < Xstar
+      dataset.test$SCrisk[j] <- ifelse(dataset.test[j, paste0("test", nitems)] >= Xstar, 
+                                       "at risk", "not at risk")
       dataset.test$currit[j] <- nitems
       dataset.test$currts[j] <- dataset.test[j, paste0("test", nitems)]
     } else if (is.na(dataset.test$riskflag[j])) {
       ## Then take noriskflag
-      dataset.test$SCrisk[j] <- FALSE
-      dataset.test$SCnorisk[j] <- TRUE
+      dataset.test$SCrisk[j] <- "not at risk"
       dataset.test$currit[j] <- dataset.test$noriskflag[j]
       dataset.test$currts[j] <- dataset.test[j, paste0("item", dataset.test$noriskflag[j])]
     } else if (is.na(dataset.test$noriskflag[j])) {
       ## Then take riskflag
-      dataset.test$SCrisk[j] <- TRUE
-      dataset.test$SCnorisk[j] <- FALSE
+      dataset.test$SCrisk[j] <- "at risk"
       dataset.test$currit[j] <- dataset.test$riskflag[j]
       dataset.test$currts[j] <- dataset.test[j, paste0("item", dataset.test$riskflag[j])]
     } else {
-      ## Them both riskflag and noriskflag. Take whichever value is lowest
+      ## Them both riskflag and noriskflag. Take whichever value is lowest.
       risk <- dataset.test$risk[j] <= dataset.test$norisk[j] 
-      dataset.test$SCrisk[j] <- risk
-      dataset.test$SCnorisk[j] <- !risk
-      dataset.test$currit[j] <- ifelse(risk, dataset.test$riskflag[j], dataset.test$riskflag[j])
+      dataset.test$SCrisk[j] <- ifelse(risk, "at risk", "not at risk")
+      dataset.test$currit[j] <- ifelse(risk, dataset.test$riskflag[j], dataset.test$noriskflag[j])
       dataset.test$currts[j] <- ifelse(risk,
                                        dataset.test[j, paste0("item", dataset.test$riskflag[j])],
                                        dataset.test[j, paste0("item", dataset.test$noriskflag[j])])
     }
   }
-    
-  #dataset.test$currit <- NA  # tracking the current item number
-  #dataset.test$currit[!is.na(dataset.test$minflag1)] <- dataset.test$minflag1[!is.na(dataset.test$minflag1)]
-  #dataset.test$currit[!is.na(dataset.test$plusflag0)] <- dataset.test$plusflag0[!is.na(dataset.test$plusflag0)]
-  #dataset.test$currit[is.na(dataset.test$currit)] <- nitems # in case no curtailment took place
-
-  #dataset.test$currts <- NA  # for tracking the current test score
-  #for (i in 1:nobs) {
-  #  dataset.test[i, "currts"] <- dataset.test[i, paste0("test", dataset.test[i, "currit"])]
-  #}
-
-  accuracy <- list(
-    risk = table(dataset.test[,"SCrisk"], dataset.test[,(nitems*2)] >= Xstar, 
-                 useNA="ifany", 
-                 dnn = c("curtailed: flagged 'risk'","full length: 'at risk'")),
-    no.risk = table(dataset.test[,"SCnorisk"], dataset.test[,(nitems*2)] < Xstar, 
-                    useNA="ifany", 
-                    dnn = c("curtailed: flagged 'no risk'","full length: 'not at risk'")))
   
-  out <- data.frame(
-    decision.full = ifelse(dataset.test[ , paste0("test", nitems)] >= Xstar, "at risk", "not at risk"),
-    SCrisk = dataset.test$SCrisk,
-    SCnorisk = dataset.test$SCnorisk,
-    current.item = dataset.test$currit,
-    current.score = dataset.test$currts
-  )
+  ## Return results:
+  fulllength <- ifelse(dataset.test[ , paste0("test", nitems)] >= Xstar, "at risk", "not at risk")
+  accuracy = list(
+    risk = table(dataset.test$SCrisk, fulllength, 
+                 useNA = "ifany", 
+                 dnn = c("curtailed","full length")))
+  
+  out <- list(
+    test.results= data.frame(
+      fulllength.decision = fulllength,
+      curtailed.decision = dataset.test$SCrisk,
+      current.item = dataset.test$currit,
+      current.score = dataset.test$currts),
+    curtailed.test.length.distribution = list(
+      mean = mean(dataset.test$currit),
+      standard.deviation = sd(dataset.test$currit),
+      median = median(dataset.test$currit),
+      proportion.curtailed = sum(dataset.test[,(nitems*2)+1] < nitems) / nobs),
+    accuracy = accuracy)
   
   print(accuracy)
+  
   if (plot) {
     hist(dataset.test$currit, main = "Test lengths", 
          xlab = "Number of items administered")
   }
+  
   invisible(out)
-
+  
 }
 
 
@@ -235,67 +212,92 @@ stochCurtailXval <- function(dataset, Xstar, gamma0 = .95, gamma1 = .95, plot = 
     dataset[paste0("test", i)] <- rowSums(dataset[ , 1:i]) 
   }
 
-  # Get Pkplus and Pkmin:
+  ## Get Pkplus and Pkmin:
   dataset[, paste0("Pkplus", 1:(nitems-1))] <- NA
   dataset[, paste0("Pkmin", 1:(nitems-1))] <- NA
-  #for (i in 1:(nitems-1)) {
-    for (j in 1:nobs) {
-      if (verbose) print(paste("observation", j))
-      traindata <- dataset[-j, ] # exclude person j from dataset
-      T_plus <- traindata[traindata[paste0("test", nitems)] >= Xstar, ] # select above-cutoff rows
-      #dataset[j, paste0("Pkplus", i)] <-
-      #  mean(T_plus[ , paste0("rest", i)] + dataset[j, paste0("test", i)] >= Xstar)
-      dataset[j, paste0("Pkplus", 1:(nitems-1))] <- rowMeans(sapply(apply(
-        T_plus[ , paste0("rest", 1:(nitems-1))], 1, `+`, 
-        dataset[j, paste0("test", 1:(nitems-1))]), 
-        `>=`, Xstar))
-      T_min <- traindata[traindata[paste0("test", nitems)] < Xstar, ]  # select below-cutoff rows
-      #dataset[j, paste0("Pkmin", i)] <-
-      #  mean(T_min[ , paste0("rest", i)] + dataset[j, paste0("test", i)] >= Xstar)
-      dataset[j, paste0("Pkmin", 1:(nitems-1))] <- rowMeans(sapply(apply(
-        T_min[ , paste0("rest", 1:(nitems-1))], 1, `+`, 
-        dataset[j, paste0("test", 1:(nitems-1))]), 
-        `>=`, Xstar))
-    }
-  #}
-  
-  # for every row, pkplus and pkmin should be checked for being >=gamma1 and <=1-gamma0
-  for (i in 1:nobs) {
-    dataset$plusflag1[i] <- which(dataset[i, paste0("Pkplus", 1:(nitems-1))] >= gamma1)[1]
-    dataset$plusflag0[i] <- which(dataset[i, paste0("Pkplus", 1:(nitems-1))] <= 1-gamma0)[1]
-    dataset$minflag1[i] <- which(dataset[i, paste0("Pkmin",1:(nitems-1))] >= gamma1)[1]
-    dataset$minflag0[i] <- which(dataset[i, paste0("Pkmin",1:(nitems-1))] <= 1-gamma0)[1]
+  for (j in 1:nobs) {
+    if (verbose) print(paste("observation", j))
+    traindata <- dataset[-j, ] # exclude person j from dataset
+    T_plus <- traindata[traindata[paste0("test", nitems)] >= Xstar, ] # select above-cutoff rows
+    ## TODO: Using sweep instead of sapply may be faster:
+    dataset[j, paste0("Pkplus", 1:(nitems-1))] <- rowMeans(sapply(apply(
+      T_plus[ , paste0("rest", 1:(nitems-1))], 1, `+`, 
+      dataset[j, paste0("test", 1:(nitems-1))]), 
+      `>=`, Xstar))
+    T_min <- traindata[traindata[paste0("test", nitems)] < Xstar, ]  # select below-cutoff rows
+    ## TODO: Using sweep instead of sapply may be faster:
+    dataset[j, paste0("Pkmin", 1:(nitems-1))] <- rowMeans(sapply(apply(
+      T_min[ , paste0("rest", 1:(nitems-1))], 1, `+`, 
+      dataset[j, paste0("test", 1:(nitems-1))]), 
+      `>=`, Xstar))
   }
-
-  dataset$SCrisk <- !is.na(dataset$minflag1) & !is.na(dataset$plusflag1)
-  dataset$SCrisk[dataset[paste("test",nitems,sep="")] >= Xstar & is.na(dataset$minflag1) & is.na(dataset$plusflag0)] <- TRUE # in case no curtailment took place
-  dataset$SCnorisk <- !is.na(dataset$plusflag0)  & !is.na(dataset$minflag0)
-  dataset$SCnorisk[dataset[paste("test",nitems,sep="")] < Xstar & is.na(dataset$plusflag0) & is.na(dataset$minflag1)] <- TRUE # in case no curtailment took place
-
-  dataset$currit <- NA  # for tracking the current item number
-  dataset$currit[!is.na(dataset$minflag1)] <- dataset$minflag1[!is.na(dataset$minflag1)]
-  dataset$currit[!is.na(dataset$plusflag0)] <- dataset$plusflag0[!is.na(dataset$plusflag0)]
-  dataset$currit[is.na(dataset$currit)] <- nitems # in case no curtailment took place
-
-  dataset$currts <- NA  # for tracking the current test score
+  
+  ## Check for every observations whether pkplus and pkmin are >= gamma1 and <= 1-gamma0:
   for (i in 1:nobs) {
-    dataset[i,"currts"] <- dataset[i,paste("test", dataset[i,"currit"], sep="")]
+    dataset$riskflag[i] <- which(dataset[i, paste0("Pkplus", 1:(nitems-1))] >= gamma1 &
+                                   dataset[i, paste0("Pkmin", 1:(nitems-1))] >= gamma1)[1]
+    dataset$noriskflag0[i] <- which(dataset[i, paste0("Pkplus", 1:(nitems-1))] <= 1-gamma0 &
+                                      dataset[i, paste0("Pkmin", 1:(nitems-1))] <= 1-gamma0)[1]
+  }
+  
+  dataset$currit <- dataset$currts <- dataset$SCrisk <- NA
+  for(j in 1:nobs) {
+    if (is.na(dataset$riskflag[j]) && is.na(dataset$noriskflag[j])) {
+      ## Then no curtailment was performed. Get decision based on full test score and set currit <- nitems
+      dataset$SCrisk[j] <- ifelse(dataset[j, paste0("test", nitems)] >= Xstar, 
+                                  "at risk", "not at risk")
+      dataset$currit[j] <- nitems
+      dataset$currts[j] <- dataset[j, paste0("test", nitems)]
+    } else if (is.na(dataset$riskflag[j])) {
+      ## Then take noriskflag
+      dataset$SCrisk[j] <- "not at risk"
+      dataset$currit[j] <- dataset$noriskflag[j]
+      dataset$currts[j] <- dataset[j, paste0("item", dataset$noriskflag[j])]
+    } else if (is.na(dataset$noriskflag[j])) {
+      ## Then take riskflag
+      dataset$SCrisk[j] <- "at risk"
+      dataset$currit[j] <- dataset$riskflag[j]
+      dataset$currts[j] <- dataset[j, paste0("item", dataset$riskflag[j])]
+    } else {
+      ## Them both riskflag and noriskflag. Take whichever value is lowest.
+      risk <- dataset$risk[j] <= dataset$norisk[j] 
+      dataset$SCrisk[j] <- ifelse(risk, "at risk", "not at risk")
+      dataset$currit[j] <- ifelse(risk, dataset$riskflag[j], dataset$noriskflag[j])
+      dataset$currts[j] <- ifelse(risk,
+                                       dataset[j, paste0("item", dataset$riskflag[j])],
+                                       dataset[j, paste0("item", dataset$noriskflag[j])])
+    }
   }
 
   ## return results:
+  fulllength <- ifelse(dataset[ , paste0("test", nitems)] >= Xstar, "at risk", "not at risk")
+  accuracy = list(
+    risk = table(dataset$SCrisk, fulllength, 
+                 useNA = "ifany", 
+                 dnn = c("curtailed","full length")))
+  
+  
   if (plot) {
     hist(dataset$currit,  main = "Test lengths", 
          xlab = "Number of items administered")
   }
-  print(table(dataset$SCrisk, dataset[,paste0("test", nitems)] >= Xstar,
-              dnn = c("curtailed: flagged 'risk'", "full length: 'at risk'")))
-  print(table(dataset$SCnorisk, dataset[,paste0("test", nitems)] < Xstar,
-              dnn = c("curtailed: flagged 'no risk'", "full length: 'no risk'")))
-  excl <- which(names(dataset) %in% c(
-    paste0("rest", 1:(nitems-1)), paste0("test", 1:nitems), 
-    paste0("Pkplus", 1:nitems), paste0("Pkmin", 1:nitems),
-    "plusflag1", "plusflag0", "minflag1", "minflag0"))
-  invisible(dataset[, -excl])
+  
+  out <- list(
+    test.results= data.frame(
+      fulllength.decision = fulllength,
+      curtailed.decision = dataset$SCrisk,
+      current.item = dataset$currit,
+      current.score = dataset$currts),
+    curtailed.test.length.distribution = list(
+      mean = mean(dataset$currit),
+      standard.deviation = sd(dataset$currit),
+      median = median(dataset$currit),
+      proportion.curtailed = sum(dataset[,(nitems*2)+1] < nitems) / nobs),
+    accuracy = accuracy)
+  
+  print(accuracy)
+  
+  invisible(out)
 }
 
 

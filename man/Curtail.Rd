@@ -64,7 +64,8 @@
 }
 
 \examples{\donttest{
-  Curtail(itemscores, 19)
+  tmp <- Curtail(itemscores, 19)
+  tmp$curtailed.test.length.distribution
 }}
 
 \keyword{curtail, curtailment}

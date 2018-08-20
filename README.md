@@ -13,78 +13,80 @@ library(curtail)
 head(itemscores)
 ```
 
-First, we apply deterministic curtailment on all observations, using a cut-off value of 17:
+First, we will apply deterministic curtailment on all observations, using a cut-off value of 17:
 
 ``` r
-tmp <- Curtail(itemscores, Xstar = 17)
+tmp1 <- Curtail(itemscores[501:1000, ], Xstar = 17)
 #> $risk
-#>                          full length: 'at risk'
-#> curtailed: flagged 'risk' FALSE TRUE
-#>                     FALSE   702    0
-#>                     TRUE      0  298
-#> 
-#> $no.risk
-#>                             full length: 'not at risk'
-#> curtailed: flagged 'no risk' FALSE TRUE
-#>                        FALSE     0  702
-#>                        TRUE    298    0
+#>              full length
+#> curtailed     at risk not at risk
+#>   at risk         125           0
+#>   not at risk       0         375
 ```
 
 ![](inst/README-figures/README-unnamed-chunk-3-1.png)
 
+We can also obtain some desciptive statistics about the number of items administered and proportion of observations for which the testing was ceased before the full-length test was administered:
+
 ``` r
-summary(tmp$current.item)
-#>    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-#>   10.00   17.00   18.00   17.67   19.00   20.00
+tmp1$curtailed.test.length.distribution
+#> $mean
+#> [1] 18.196
+#> 
+#> $standard.deviation
+#> [1] 1.618277
+#> 
+#> $median
+#> [1] 18
+#> 
+#> $proportion.curtailed
+#> [1] 1
 ```
 
-The results show the number of observations flagged as 'at risk' or 'not at risk', according to the curtailed and full-length test administration. Also, the number of items administrered is depicted in a histogram. As is always the case with detereministic curtailment, no classification errors with respect to the full-length test decsion are made. However, we did manage to obtain a substantial reduction in test length.
+The results show the number of observations flagged as 'at risk' or 'not at risk', according to the curtailed and full-length test administration. Also, the number of items administrered is depicted in a histogram. As is always the case with detereministic curtailment, no classification errors with respect to the full-length test decsion are made. We did however manage to obtain a substantial reduction in test length.
 
 Perhaps we can further reduce test length through stochastic curtailment. We use the first 500 observations for training and the next 500 observations for testing:
 
 ``` r
-tmp <- stochCurtail(itemscores[1:500,], dataset.test = itemscores[501:1000,], 
-                    Xstar = 17)
+tmp2 <- stochCurtail(itemscores[1:500,], dataset.test = itemscores[501:1000,], 
+                     Xstar = 17)
 #> $risk
-#>                          full length: 'at risk'
-#> curtailed: flagged 'risk' FALSE TRUE
-#>                     FALSE   375    4
-#>                     TRUE      0  121
-#> 
-#> $no.risk
-#>                             full length: 'not at risk'
-#> curtailed: flagged 'no risk' FALSE TRUE
-#>                        FALSE   121    0
-#>                        TRUE      4  375
-```
-
-![](inst/README-figures/README-unnamed-chunk-4-1.png)
-
-``` r
-summary(tmp$current.item)
-#>    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-#>    8.00   16.00   18.00   17.37   19.00   20.00
-```
-
-We were able to reduce the number of items administered only slightly, at the cost of four incorrect decisions.
-
-Perhaps we want to inspect test length distributions for at-risk or not-at-risk observations only:
-
-``` r
-hist(tmp$current.item[tmp$SCrisk], xlab = "Number of items administered", 
-     main = "Test lengths for at-risk observations")
+#>              full length
+#> curtailed     at risk not at risk
+#>   at risk         121           0
+#>   not at risk       4         375
 ```
 
 ![](inst/README-figures/README-unnamed-chunk-5-1.png)
 
 ``` r
-hist(tmp$current.item[tmp$SCnorisk], xlab = "Number of items administered", 
-     main = "Test lengths for not-at-risk observations")
+tmp2$curtailed.test.length.distribution
+#> $mean
+#> [1] 17.37
+#> 
+#> $standard.deviation
+#> [1] 2.435768
+#> 
+#> $median
+#> [1] 18
+#> 
+#> $proportion.curtailed
+#> [1] 1
 ```
 
-![](inst/README-figures/README-unnamed-chunk-5-2.png)
+We were able to reduce the number of items administered somewhat, at the cost of four incorrect decisions (out of 500).
 
-If we want to obtain tables with the item-specific cutoff values, we can use the Table and stochTable functions:
+For example, we can also inspect test length distributions for at-risk observations separately:
+
+``` r
+hist(tmp2$test.results$current.item[tmp2$test.results$curtailed.decision == "at risk"], 
+     xlab = "Number of items administered", 
+     main = "Test lengths for at-risk observations")
+```
+
+![](inst/README-figures/README-unnamed-chunk-7-1.png)
+
+If we want to obtain tables with the item-specific cutoff values, we can use the Table (for deterministic curtailment) function:
 
 ``` r
 Table(itemscores, Xstar = 17)
@@ -97,6 +99,11 @@ Table(itemscores, Xstar = 17)
 #>         item20
 #> no.risk     16
 #> risk        17
+```
+
+Values NA indicate, that curtailment is not yet possible for that item and decision. For stochastic curtailment, we can employ the stochTable function:
+
+``` r
 stochTable(itemscores, Xstar = 17)
 #>         item1 item2 item3 item4 item5 item6 item7 item8 item9 item10
 #> no.risk    NA    NA    NA    NA    NA    NA    NA    NA    NA      0
@@ -109,19 +116,16 @@ stochTable(itemscores, Xstar = 17)
 #> risk        17
 ```
 
-Perhaps we also want to assess the accuracy of decisions based on stochastic curtailment, using leave-on-out cross validation. This can be done using the stochCurtailXval function. As this is computationally intensive, in this example we only apply the function to the first 250 observations:
+Perhaps we also want to assess the accuracy of decisions based on stochastic curtailment, using leave-one-out cross validation. This can be done using the stochCurtailXval function. As this is computationally intensive, in this example we only apply the function to the first 100 observations, but normally we would apply this function to the whole dataset:
 
 ``` r
-stochCurtailXval(itemscores[1:250,], Xstar = 17)
+stochCurtailXval(itemscores[1:100,], Xstar = 17)
 ```
 
-![](inst/README-figures/README-unnamed-chunk-7-1.png)
+![](inst/README-figures/README-unnamed-chunk-10-1.png)
 
-    #>                          full length: 'at risk'
-    #> curtailed: flagged 'risk' FALSE TRUE
-    #>                     FALSE   145    0
-    #>                     TRUE      0  105
-    #>                             full length: 'no risk'
-    #> curtailed: flagged 'no risk' FALSE TRUE
-    #>                        FALSE   105    0
-    #>                        TRUE      0  145
+    #> $risk
+    #>              full length
+    #> curtailed     at risk not at risk
+    #>   at risk          11           0
+    #>   not at risk       2          87

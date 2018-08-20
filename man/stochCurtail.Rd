@@ -63,9 +63,11 @@
   samp <- sample(1:1000, 500); train <- samp[1:500]
   trainingdata <- itemscores[train,]
   testdata <- itemscores[-train,]
-  stochCurtail(trainingdata, testdata, 19)
+  tmp1 <- stochCurtail(trainingdata, testdata, 19)
+  tmp1$curtailed.test.length.distribution
   ## try lower gamma values for earlier stopping, but lower accuracy:
-  stochCurtail(trainingdata, testdata, 19, gamma0=.75, gamma1=.75)
+  tmp2 <- stochCurtail(trainingdata, testdata, 19, gamma0=.75, gamma1=.75)
+  tmp2$curtailed.test.length.distribution
 }}
 
 \references{

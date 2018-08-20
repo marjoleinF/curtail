@@ -63,9 +63,9 @@
 }
 
 \examples{\donttest{
-    tmp <- stochCurtailXval(itemscores, 19, gamma0=.95, gamma1=.95) 
-    ## Recreate confusion matrix manually:
-    table(tmp$SCrisk, rowSums(itemscores) >= 19)
+    ## Only first 100 observations are specified here, to reduce computation time: 
+    tmp <- stochCurtailXval(itemscores[1:100,], 19, gamma0=.95, gamma1=.95) 
+    tmp$curtailed.test.length.distribution
   }
 }
 
