@@ -44,10 +44,8 @@ Curtail <- function(dataset.test, Xstar, highest = NULL, lowest = NULL,
 
   ## Return results:
   fulllength <- ifelse(dataset.test[ , paste0("test", nitems)] >= Xstar, "at risk", "not at risk")
-  accuracy = list(
-    risk = table(dataset.test$Crisk, fulllength, 
-                 useNA = "ifany", 
-                 dnn = c("curtailed","full length")))
+  accuracy <- table(dataset.test$Crisk, fulllength, useNA = "ifany", 
+                    dnn = c("curtailed","full length"))
 
   out <- list(
     test.results= data.frame(
@@ -119,7 +117,7 @@ stochCurtail <- function(dataset.train, dataset.test = NULL, Xstar,
   for (i in 1:nobs) {
     dataset.test$riskflag[i] <- which(dataset.test[i, paste0("Pkplus", 1:(nitems-1))] >= gamma1 &
                                          dataset.test[i, paste0("Pkmin", 1:(nitems-1))] >= gamma1)[1]
-    dataset.test$noriskflag0[i] <- which(dataset.test[i, paste0("Pkplus", 1:(nitems-1))] <= 1-gamma0 &
+    dataset.test$noriskflag[i] <- which(dataset.test[i, paste0("Pkplus", 1:(nitems-1))] <= 1-gamma0 &
                                            dataset.test[i, paste0("Pkmin", 1:(nitems-1))] <= 1-gamma0)[1]
   }
   
@@ -136,29 +134,27 @@ stochCurtail <- function(dataset.train, dataset.test = NULL, Xstar,
       ## Then take noriskflag
       dataset.test$SCrisk[j] <- "not at risk"
       dataset.test$currit[j] <- dataset.test$noriskflag[j]
-      dataset.test$currts[j] <- dataset.test[j, paste0("item", dataset.test$noriskflag[j])]
+      dataset.test$currts[j] <- dataset.test[j, paste0("test", dataset.test$noriskflag[j])]
     } else if (is.na(dataset.test$noriskflag[j])) {
       ## Then take riskflag
       dataset.test$SCrisk[j] <- "at risk"
       dataset.test$currit[j] <- dataset.test$riskflag[j]
-      dataset.test$currts[j] <- dataset.test[j, paste0("item", dataset.test$riskflag[j])]
+      dataset.test$currts[j] <- dataset.test[j, paste0("test", dataset.test$riskflag[j])]
     } else {
       ## Them both riskflag and noriskflag. Take whichever value is lowest.
       risk <- dataset.test$risk[j] <= dataset.test$norisk[j] 
       dataset.test$SCrisk[j] <- ifelse(risk, "at risk", "not at risk")
       dataset.test$currit[j] <- ifelse(risk, dataset.test$riskflag[j], dataset.test$noriskflag[j])
       dataset.test$currts[j] <- ifelse(risk,
-                                       dataset.test[j, paste0("item", dataset.test$riskflag[j])],
-                                       dataset.test[j, paste0("item", dataset.test$noriskflag[j])])
+                                       dataset.test[j, paste0("test", dataset.test$riskflag[j])],
+                                       dataset.test[j, paste0("test", dataset.test$noriskflag[j])])
     }
   }
   
   ## Return results:
   fulllength <- ifelse(dataset.test[ , paste0("test", nitems)] >= Xstar, "at risk", "not at risk")
-  accuracy = list(
-    risk = table(dataset.test$SCrisk, fulllength, 
-                 useNA = "ifany", 
-                 dnn = c("curtailed","full length")))
+  accuracy <- table(dataset.test$SCrisk, fulllength, useNA = "ifany", 
+                    dnn = c("curtailed","full length"))
   
   out <- list(
     test.results= data.frame(
@@ -218,17 +214,15 @@ stochCurtailXval <- function(dataset, Xstar, gamma0 = .95, gamma1 = .95, plot = 
   for (j in 1:nobs) {
     if (verbose) print(paste("observation", j))
     traindata <- dataset[-j, ] # exclude person j from dataset
-    T_plus <- traindata[traindata[paste0("test", nitems)] >= Xstar, ] # select above-cutoff rows
-    ## TODO: Using sweep instead of sapply may be faster:
+    T_plus <- traindata[traindata[paste0("test", nitems)] >= Xstar, 
+                        paste0("rest", 1:(nitems-1))] # select above-cutoff rows
     dataset[j, paste0("Pkplus", 1:(nitems-1))] <- rowMeans(sapply(apply(
-      T_plus[ , paste0("rest", 1:(nitems-1))], 1, `+`, 
-      dataset[j, paste0("test", 1:(nitems-1))]), 
+      T_plus, 1, `+`, dataset[j, paste0("test", 1:(nitems-1))]), 
       `>=`, Xstar))
-    T_min <- traindata[traindata[paste0("test", nitems)] < Xstar, ]  # select below-cutoff rows
-    ## TODO: Using sweep instead of sapply may be faster:
+    T_min <- traindata[traindata[paste0("test", nitems)] < Xstar, 
+                                 paste0("rest", 1:(nitems-1))]  # select below-cutoff rows
     dataset[j, paste0("Pkmin", 1:(nitems-1))] <- rowMeans(sapply(apply(
-      T_min[ , paste0("rest", 1:(nitems-1))], 1, `+`, 
-      dataset[j, paste0("test", 1:(nitems-1))]), 
+      T_min, 1, `+`, dataset[j, paste0("test", 1:(nitems-1))]), 
       `>=`, Xstar))
   }
   
@@ -236,7 +230,7 @@ stochCurtailXval <- function(dataset, Xstar, gamma0 = .95, gamma1 = .95, plot = 
   for (i in 1:nobs) {
     dataset$riskflag[i] <- which(dataset[i, paste0("Pkplus", 1:(nitems-1))] >= gamma1 &
                                    dataset[i, paste0("Pkmin", 1:(nitems-1))] >= gamma1)[1]
-    dataset$noriskflag0[i] <- which(dataset[i, paste0("Pkplus", 1:(nitems-1))] <= 1-gamma0 &
+    dataset$noriskflag[i] <- which(dataset[i, paste0("Pkplus", 1:(nitems-1))] <= 1-gamma0 &
                                       dataset[i, paste0("Pkmin", 1:(nitems-1))] <= 1-gamma0)[1]
   }
   
@@ -252,30 +246,27 @@ stochCurtailXval <- function(dataset, Xstar, gamma0 = .95, gamma1 = .95, plot = 
       ## Then take noriskflag
       dataset$SCrisk[j] <- "not at risk"
       dataset$currit[j] <- dataset$noriskflag[j]
-      dataset$currts[j] <- dataset[j, paste0("item", dataset$noriskflag[j])]
+      dataset$currts[j] <- dataset[j, paste0("test", dataset$noriskflag[j])]
     } else if (is.na(dataset$noriskflag[j])) {
       ## Then take riskflag
       dataset$SCrisk[j] <- "at risk"
       dataset$currit[j] <- dataset$riskflag[j]
-      dataset$currts[j] <- dataset[j, paste0("item", dataset$riskflag[j])]
+      dataset$currts[j] <- dataset[j, paste0("test", dataset$riskflag[j])]
     } else {
       ## Them both riskflag and noriskflag. Take whichever value is lowest.
       risk <- dataset$risk[j] <= dataset$norisk[j] 
       dataset$SCrisk[j] <- ifelse(risk, "at risk", "not at risk")
       dataset$currit[j] <- ifelse(risk, dataset$riskflag[j], dataset$noriskflag[j])
       dataset$currts[j] <- ifelse(risk,
-                                       dataset[j, paste0("item", dataset$riskflag[j])],
-                                       dataset[j, paste0("item", dataset$noriskflag[j])])
+                                       dataset[j, paste0("test", dataset$riskflag[j])],
+                                       dataset[j, paste0("test", dataset$noriskflag[j])])
     }
   }
 
   ## return results:
   fulllength <- ifelse(dataset[ , paste0("test", nitems)] >= Xstar, "at risk", "not at risk")
-  accuracy = list(
-    risk = table(dataset$SCrisk, fulllength, 
-                 useNA = "ifany", 
-                 dnn = c("curtailed","full length")))
-  
+  accuracy <- table(dataset$SCrisk, fulllength, useNA = "ifany", 
+                    dnn = c("curtailed","full length"))
   
   if (plot) {
     hist(dataset$currit,  main = "Test lengths", 
