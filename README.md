@@ -86,7 +86,7 @@ We can further reduce test length by lowering the gamma values, that is, the thr
 
 ``` r
 tmp3 <- stochCurtail(itemscores[1:500, ], dataset.test = itemscores[501:1000,], 
-                     Xstar = 17, gamma0 = .6, gamma1 = .6)
+                     Xstar = 17, gamma0 = .6, gamma1 = .6, plot = FALSE)
 #>              full length
 #> curtailed     at risk not at risk
 #>   at risk         100           4
@@ -96,8 +96,6 @@ tmp3 <- stochCurtail(itemscores[1:500, ], dataset.test = itemscores[501:1000,],
 #> sensitivity =  0.8 
 #> specificity =  0.9893333
 ```
-
-![](inst/README-figures/README-unnamed-chunk-7-1.png)
 
 ``` r
 tmp3$curtailed.test.length.distribution

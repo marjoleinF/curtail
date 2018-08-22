@@ -58,7 +58,7 @@ We can further reduce test length by lowering the gamma values, that is, the thr
 
 ```{r}
 tmp3 <- stochCurtail(itemscores[1:500, ], dataset.test = itemscores[501:1000,], 
-                     Xstar = 17, gamma0 = .6, gamma1 = .6)
+                     Xstar = 17, gamma0 = .6, gamma1 = .6, plot = FALSE)
 ```
 
 ```{r}
