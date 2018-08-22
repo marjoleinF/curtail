@@ -112,16 +112,16 @@ tmp3$curtailed.test.length.distribution
 #> [1] 0.932
 ```
 
-We see that sensitivity is more strongly affected by lowering the gamma values. This is partly due to the value for Xstar we specified, which yielded the following base rate:
+We see that sensitivity is more strongly affected than specificity by lowering the gamma values. This is due to the value for Xstar we specified, which yielded the following base rate:
 
 ``` r
-prop.table(table(rowSums(itemscores) > 17))
+prop.table(table(rowSums(itemscores) >= 17))
 #> 
 #> FALSE  TRUE 
-#> 0.761 0.239
+#> 0.702 0.298
 ```
 
-If the 'at-risk' class would have been more prevalent, then lowering both gamma values would have more strongly affected specificity. The value of gamma1 specifies the threshold for incorrect 'at-risk' decisions, whereas the value of gamma0 controls the threshold for incorrect 'not-at-risk' decisions. Thus, if we want to improve sensitivity, we should increase gamma0:
+If the 'at-risk' class would have been more prevalent, then lowering both gamma values would have more strongly affected specificity. Note that gamma1 specifies the threshold for incorrect 'at-risk' decisions, whereas gamma0 specifies the threshold for incorrect 'not-at-risk' decisions. Thus, if we want to increase sensitivity, we should increase gamma0:
 
 ``` r
 tmp4 <- stochCurtail(itemscores[1:500, ], dataset.test = itemscores[501:1000,], 
@@ -136,7 +136,7 @@ tmp4 <- stochCurtail(itemscores[1:500, ], dataset.test = itemscores[501:1000,],
 #> specificity =  0.9893333
 ```
 
-Alternatively, if we want to improve specificity, we should increase the value of gamma1:
+Alternatively, if we want to increase specificity, we should increase gamma1:
 
 ``` r
 tmp5 <- stochCurtail(itemscores[1:500, ], dataset.test = itemscores[501:1000,], 
