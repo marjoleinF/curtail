@@ -22,11 +22,9 @@ Curtail <- function(dataset.test, Xstar, highest = NULL, lowest = NULL,
 
   ## Perform the curtailment:
   dataset.test$currit <- dataset.test$currts <- NA
-  #dataset.test$Crisk <- NA
   dataset.test$Crisk <- NA
   for (i in 1:nobs) {
     for (j in 1:nitems) {
-      #if (is.na(dataset.test$Cnorisk[i]) && is.na(dataset.test$Crisk[i])) {
       if (is.na(dataset.test$Crisk[i])) {
         if (dataset.test[i, paste0("test", j)] >= risk.boundaries[j]) {
           dataset.test$currit[i] <- j
@@ -35,7 +33,6 @@ Curtail <- function(dataset.test, Xstar, highest = NULL, lowest = NULL,
         } else if (dataset.test[i, paste0("test", j)] <= norisk.boundaries[j]) {
           dataset.test$currit[i] <- j
           dataset.test$currts[i] <- dataset.test[i, paste0("test", j)] 
-          #dataset.test$Cnorisk[i] <- TRUE
           dataset.test$Crisk[i] <- "not at risk"
         }
       }
@@ -44,9 +41,13 @@ Curtail <- function(dataset.test, Xstar, highest = NULL, lowest = NULL,
 
   ## Return results:
   fulllength <- ifelse(dataset.test[ , paste0("test", nitems)] >= Xstar, "at risk", "not at risk")
-  accuracy <- table(dataset.test$Crisk, fulllength, useNA = "ifany", 
-                    dnn = c("curtailed","full length"))
-
+  confusion.matrix <- table(dataset.test$Crisk, fulllength, useNA = "ifany", 
+                            dnn = c("curtailed","full length"))
+  acc <- prop.table(confusion.matrix, margin = 2)
+  accuracy <- list(accuracy = sum(diag(confusion.matrix))/nobs, 
+                   sensitivity = acc[1, 1], 
+                   specificity = acc[2, 2])
+  
   out <- list(
     test.results= data.frame(
       fulllength.decision = fulllength,
@@ -58,9 +59,11 @@ Curtail <- function(dataset.test, Xstar, highest = NULL, lowest = NULL,
       standard.deviation = sd(dataset.test$currit),
       median = median(dataset.test$currit),
       proportion.curtailed = sum(dataset.test$currit < nitems) / nobs),
+    confusion.matrix = confusion.matrix,
     accuracy = accuracy)
 
-  print(accuracy)
+  print(confusion.matrix)
+  cat("\naccuracy = ", accuracy$accuracy, "\nsensitivity = ", accuracy$sens, "\nspecificity = ", accuracy$spec, "\n")
   
   if (plot) {
     hist(dataset.test$currit, main = "Test lengths", 
@@ -104,6 +107,7 @@ stochCurtail <- function(dataset.train, dataset.test = NULL, Xstar,
   ## Calculate Pkplus and Pkmin (prop. of restscores in T_plus resp T_min 
   ## yielding a total score >= Xstar when added to person j's testscore on 
   ## item i):
+
   for (i in 1:(nitems-1)) {
     for (j in 1:(nobs)) {
       dataset.test[j, paste0("Pkplus", i)] <-
@@ -121,7 +125,6 @@ stochCurtail <- function(dataset.train, dataset.test = NULL, Xstar,
                                            dataset.test[i, paste0("Pkmin", 1:(nitems-1))] <= 1-gamma0)[1]
   }
   
-
   dataset.test$currit <- dataset.test$currts <- dataset.test$SCrisk <- NA
   for(j in 1:nobs) {
     if (is.na(dataset.test$riskflag[j]) && is.na(dataset.test$noriskflag[j])) {
@@ -153,8 +156,12 @@ stochCurtail <- function(dataset.train, dataset.test = NULL, Xstar,
   
   ## Return results:
   fulllength <- ifelse(dataset.test[ , paste0("test", nitems)] >= Xstar, "at risk", "not at risk")
-  accuracy <- table(dataset.test$SCrisk, fulllength, useNA = "ifany", 
-                    dnn = c("curtailed","full length"))
+  confusion.matrix <- table(dataset.test$SCrisk, fulllength, useNA = "ifany", 
+                            dnn = c("curtailed","full length"))
+  acc <- prop.table(confusion.matrix, margin = 2)
+  accuracy <- list(accuracy = sum(diag(confusion.matrix))/nobs, 
+                   sensitivity = acc[1, 1], 
+                   specificity = acc[2, 2])
   
   out <- list(
     test.results= data.frame(
@@ -167,9 +174,11 @@ stochCurtail <- function(dataset.train, dataset.test = NULL, Xstar,
       standard.deviation = sd(dataset.test$currit),
       median = median(dataset.test$currit),
       proportion.curtailed = sum(dataset.test$currit < nitems) / nobs),
+    confusion.matrix = confusion.matrix,
     accuracy = accuracy)
   
-  print(accuracy)
+  print(confusion.matrix)
+  cat("\naccuracy = ", accuracy$accuracy, "\nsensitivity = ", accuracy$sens, "\nspecificity = ", accuracy$spec, "\n")
   
   if (plot) {
     hist(dataset.test$currit, main = "Test lengths", 
@@ -265,8 +274,13 @@ stochCurtailXval <- function(dataset, Xstar, gamma0 = .95, gamma1 = .95, plot = 
 
   ## return results:
   fulllength <- ifelse(dataset[ , paste0("test", nitems)] >= Xstar, "at risk", "not at risk")
-  accuracy <- table(dataset$SCrisk, fulllength, useNA = "ifany", 
-                    dnn = c("curtailed","full length"))
+  confusion.matrix <- table(dataset$SCrisk, fulllength, useNA = "ifany", 
+                            dnn = c("curtailed","full length"))
+  acc <- prop.table(confusion.matrix, margin = 2)
+  accuracy <- list(accuracy = sum(diag(confusion.matrix))/nobs,
+                   sensitivity = acc[1, 1], 
+                   specificity = acc[2, 2])
+
   
   if (plot) {
     hist(dataset$currit,  main = "Test lengths", 
@@ -284,10 +298,11 @@ stochCurtailXval <- function(dataset, Xstar, gamma0 = .95, gamma1 = .95, plot = 
       standard.deviation = sd(dataset$currit),
       median = median(dataset$currit),
       proportion.curtailed = sum(dataset$currit < nitems) / nobs),
+    confusion.matrix = confusion.matrix,
     accuracy = accuracy)
   
-  print(accuracy)
-  
+  print(confusion.matrix)
+  cat("\naccuracy = ", accuracy$accuracy, "\nsensitivity = ", accuracy$sens, "\nspecificity = ", accuracy$spec, "\n")
   invisible(out)
 }
 

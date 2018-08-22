@@ -26,7 +26,7 @@ library(curtail)
 head(itemscores)
 ```
 
-First, we will apply deterministic curtailment on a subset of 500 observations, using a cut-off value of 17:
+First, we will apply deterministic curtailment on a subset of 500 observations, using a cut-off value of 17. 
 
 ```{r}
 tmp1 <- Curtail(itemscores[501:1000, ], Xstar = 17)
@@ -54,10 +54,41 @@ tmp2$curtailed.test.length.distribution
 
 We were able to reduce the number of items administered somewhat, at the cost of four incorrect decisions (out of 500). 
 
+We can further reduce test length by lowering the gamma values, that is, the thresholds for the probability that the classification decision of the stochastically curtailed version will match that of the full-length test. Note that lower gamma values will thus yield higher misclassification rates:
+
+```{r}
+tmp3 <- stochCurtail(itemscores[1:500, ], dataset.test = itemscores[501:1000,], 
+                     Xstar = 17, gamma0 = .6, gamma1 = .6)
+```
+
+```{r}
+tmp3$curtailed.test.length.distribution
+```
+
+We see that sensitivity is more strongly affected by lowering the gamma values. This is partly due to the value for Xstar we specified, which yielded the following base rate:
+
+```{r}
+prop.table(table(rowSums(itemscores) > 17))
+```
+
+If the 'at-risk' class would have been more prevalent, then lowering both gamma values would have more strongly affected specificity. The value of gamma1 specifies the threshold for incorrect 'at-risk' decisions, whereas the value of gamma0 controls the threshold for incorrect 'not-at-risk' decisions. Thus, if we want to improve sensitivity, we should increase gamma0:
+
+```{r}
+tmp4 <- stochCurtail(itemscores[1:500, ], dataset.test = itemscores[501:1000,], 
+                     Xstar = 17, gamma0 = .9, gamma1 = .6, plot = FALSE)
+```
+
+Alternatively, if we want to improve specificity, we should increase the value of gamma1:
+
+```{r}
+tmp5 <- stochCurtail(itemscores[1:500, ], dataset.test = itemscores[501:1000,], 
+                     Xstar = 17, gamma0 = .6, gamma1 = .9, plot = FALSE)
+```
+
 Perhaps we want to inspect test length distributions for at-risk observations separately:
 
 ```{r}
-hist(tmp2$test.results$current.item[tmp2$test.results$curtailed.decision == "at risk"], 
+hist(tmp3$test.results$current.item[tmp2$test.results$curtailed.decision == "at risk"], 
      xlab = "Number of items administered", 
      main = "Test lengths for at-risk observations")
 ```
@@ -81,6 +112,11 @@ Perhaps we want to assess the accuracy of decisions based on stochastic curtailm
 ```{r}
 stochCurtailXval(itemscores[1:100,], Xstar = 17)
 ```
+
+
+
+
+
 
 ## References
 
