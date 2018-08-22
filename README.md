@@ -3,15 +3,15 @@ curtail: an R package for test curtailment
 
 A curtailed test is a variable-length test, which allows for early stopping of item administration when further items are unlikely or unable to change the final (classification) decision. Package curtail allows for creating and assessing deterministically and stochastically (based on empirical proportions) curtailed tests.
 
-Example
--------
-
 To get a first impression of how curtail works, we take a dataset of item scores on a 20-item test:
 
 ``` r
 library(curtail)
 head(itemscores)
 ```
+
+Deterministic curtailment
+-------------------------
 
 First, we will apply deterministic curtailment on a subset of 500 observations, using a cut-off value of 17.
 
@@ -48,7 +48,29 @@ tmp1$curtailed.test.length.distribution
 #> [1] 0.76
 ```
 
-We managed to obtain a substantial reduction in test length. But perhaps we can further reduce test length through stochastic curtailment. We use the first 500 observations for training and the next 500 observations for testing:
+We managed to obtain a substantial reduction in test length.
+
+Above, we in fact simulated curtailment. If we want to obtain tables with item-specific cutoff values, to apply curtailment in real-world test administation, we should use the `Table` function (for deterministic curtailment):
+
+``` r
+Table(itemscores, Xstar = 17)
+#>         item1 item2 item3 item4 item5 item6 item7 item8 item9 item10
+#> no.risk    NA    NA    NA    NA    NA    NA    NA    NA    NA     NA
+#> risk       NA    NA    NA    NA    NA    17    17    17    17     17
+#>         item11 item12 item13 item14 item15 item16 item17 item18 item19
+#> no.risk     NA     NA     NA     NA      1      4      7     10     13
+#> risk        17     17     17     17     17     17     17     17     17
+#>         item20
+#> no.risk     16
+#> risk        17
+```
+
+Values NA indicate that curtailment is not yet possible for that item and decision. For stochastic curtailment, we can employ the `stochTable` function:
+
+Stochastic curtailment
+----------------------
+
+Perhaps we can further reduce test length through stochastic curtailment. We use the first 500 observations for training and the next 500 observations for testing:
 
 ``` r
 tmp2 <- stochCurtail(itemscores[1:500,], dataset.test = itemscores[501:1000,], 
@@ -63,7 +85,7 @@ tmp2 <- stochCurtail(itemscores[1:500,], dataset.test = itemscores[501:1000,],
 #> specificity =  1
 ```
 
-![](inst/README-figures/README-unnamed-chunk-5-1.png)
+![](inst/README-figures/README-unnamed-chunk-6-1.png)
 
 ``` r
 tmp2$curtailed.test.length.distribution
@@ -81,6 +103,24 @@ tmp2$curtailed.test.length.distribution
 ```
 
 We were able to reduce the number of items administered somewhat, at the cost of four incorrect decisions (out of 500).
+
+If we want to obtain tables with item-specific cutoff values, to apply curtailment in real-world test administation, we should use the `stochTable` function (for stochastic curtailment):
+
+``` r
+stochTable(itemscores, Xstar = 17)
+#>         item1 item2 item3 item4 item5 item6 item7 item8 item9 item10
+#> no.risk    NA    NA    NA    NA    NA    NA    NA    NA    NA      0
+#> risk       NA    NA    NA    NA    14    14    14    15    15     15
+#>         item11 item12 item13 item14 item15 item16 item17 item18 item19
+#> no.risk      1      2      3      5      6      8      9     10     13
+#> risk        16     16     16     17     17     17     17     17     17
+#>         item20
+#> no.risk     16
+#> risk        17
+```
+
+Optimizing test length and classification accuracy
+--------------------------------------------------
 
 We can further reduce test length by lowering the gamma values, that is, the thresholds for the probability that the classification decision of the stochastically curtailed version will match that of the full-length test. Note that lower gamma values will thus yield higher misclassification rates:
 
@@ -159,7 +199,7 @@ hist(tmp3$test.results$current.item[tmp2$test.results$curtailed.decision == "at 
      main = "Test lengths for at-risk observations")
 ```
 
-![](inst/README-figures/README-unnamed-chunk-12-1.png)
+![](inst/README-figures/README-unnamed-chunk-14-1.png)
 
 If we want to obtain tables with item-specific cutoff values, we can use the `Table` function (for deterministic curtailment):
 
@@ -178,28 +218,18 @@ Table(itemscores, Xstar = 17)
 
 Values NA indicate that curtailment is not yet possible for that item and decision. For stochastic curtailment, we can employ the `stochTable` function:
 
-``` r
-stochTable(itemscores, Xstar = 17)
-#>         item1 item2 item3 item4 item5 item6 item7 item8 item9 item10
-#> no.risk    NA    NA    NA    NA    NA    NA    NA    NA    NA      0
-#> risk       NA    NA    NA    NA    14    14    14    15    15     15
-#>         item11 item12 item13 item14 item15 item16 item17 item18 item19
-#> no.risk      1      2      3      5      6      8      9     10     13
-#> risk        16     16     16     17     17     17     17     17     17
-#>         item20
-#> no.risk     16
-#> risk        17
-```
-
 Here we see that stochastic curtailment allows for earlier stopping of item administration than deterministic curtailment.
 
-Perhaps we want to assess the accuracy of decisions based on stochastic curtailment using leave-one-out cross validation. This can be done using the `stochCurtailXval` function. As this is computationally intensive, in this example we only apply the function to the first 100 observations, but normally we should apply this function to the whole dataset:
+Leave-one-out cross validation
+------------------------------
+
+Above, we performed 1-fold cross validation for stochastic curtailment, by specifying half of the observations as training and half of the observations as test data. Perhaps we want to assess performance using leave-one-out cross validation. This can be done using the `stochCurtailXval` function. As this is computationally intensive, in this example we only apply the function to the first 100 observations, but normally we should apply this function to the whole dataset:
 
 ``` r
 stochCurtailXval(itemscores[1:100,], Xstar = 17)
 ```
 
-![](inst/README-figures/README-unnamed-chunk-15-1.png)
+![](inst/README-figures/README-unnamed-chunk-16-1.png)
 
     #>              full length
     #> curtailed     at risk not at risk
