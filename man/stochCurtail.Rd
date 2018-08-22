@@ -49,8 +49,9 @@
   was halted); current.score (cumulative testscore at item at which testing was halted).}
   \item{curtailed.test.length.distribution}{Descriptive statistics of number of items
   administered and number of tests curtailed.}
-  \item{accuracy}{Confusion matrix of full-length and curtailed test classification 
+  \item{confusion.martrix}{Confusion matrix of full-length and curtailed test classification 
   decisions.}
+  \item{accuracy}{Correct classification rate (accuracy), sensitivity and specificity.}
 }
 
 \examples{\donttest{
