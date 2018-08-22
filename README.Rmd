@@ -117,14 +117,6 @@ hist(tmp5$test.results$current.item[tmp5$test.results$curtailed.decision == "not
      main = "Test lengths for at-risk observations")
 ```
 
-If we want to obtain tables with item-specific cutoff values, we can use the ```stochTable``` function (for stochastic curtailment, note that by default, gamma values of .95 are employed):
-
-```{r}
-stochTable(itemscores, Xstar = 17)
-```
-
-Values NA indicate that curtailment is not yet possible for that item and decision.
-
 
 ## Leave-one-out cross validation
 

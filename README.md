@@ -31,7 +31,7 @@ tmp1 <- Curtail(itemscores[501:1000, ], Xstar = 17)
 
 The results show the number of observations flagged as 'at risk' or 'not at risk', according to the curtailed and full-length test administration. Also, the number of items administrered is depicted in a histogram. No classification errors with respect to the full-length test decesion are made, as is always the case with detereministic curtailment.
 
-We can also obtain some desciptive statistics about the number of items administered and proportion of observations for which the testing was ceased before the full-length test was administered:
+We can also obtain some descriptive statistics about the number of items administered and proportion of observations for which the testing was ceased before the full-length test was administered:
 
 ``` r
 tmp1$curtailed.test.length.distribution
@@ -65,7 +65,7 @@ Table(itemscores, Xstar = 17)
 #> risk        17
 ```
 
-Values NA indicate that curtailment is not yet possible for that item and decision. For stochastic curtailment, we can employ the `stochTable` function:
+Values NA indicate that curtailment is not yet possible for that item and decision.
 
 Stochastic curtailment
 ----------------------
@@ -119,10 +119,12 @@ stochTable(itemscores, Xstar = 17)
 #> risk        17
 ```
 
+Values NA indicate that curtailment is not yet possible for that item and decision.
+
 Optimizing test length and classification accuracy
 --------------------------------------------------
 
-We can further reduce test length by lowering the gamma values, that is, the thresholds for the probability that the classification decision of the stochastically curtailed version will match that of the full-length test. Note that lower gamma values will thus yield higher misclassification rates:
+We can further reduce test length by lowering the gamma values (the thresholds for the probability that the classification decision of the stochastically curtailed version will match that of the full-length test). Note however that lower gamma values will yield higher misclassification rates:
 
 ``` r
 tmp3 <- stochCurtail(itemscores[1:500, ], dataset.test = itemscores[501:1000,], 
@@ -152,7 +154,7 @@ tmp3$curtailed.test.length.distribution
 #> [1] 0.932
 ```
 
-We see that sensitivity is more strongly affected than specificity by lowering the gamma values. This is due to the value for Xstar we specified, which yielded the following base rate:
+We see that sensitivity is more strongly affected than specificity by lowering the gamma values. This is due to the value for `Xstar` we specified, which yielded the following base rate:
 
 ``` r
 prop.table(table(rowSums(itemscores) >= 17))
@@ -161,7 +163,7 @@ prop.table(table(rowSums(itemscores) >= 17))
 #> 0.702 0.298
 ```
 
-If the 'at-risk' class would have been more prevalent, then lowering both gamma values would have more strongly affected specificity. Note that gamma1 specifies the threshold for incorrect 'at-risk' decisions, whereas gamma0 specifies the threshold for incorrect 'not-at-risk' decisions. Thus, if we want to increase sensitivity, we should increase gamma0:
+If the 'at-risk' class would have been more prevalent, then lowering both gamma values would have more strongly affected specificity. Note that `gamma1` specifies the threshold for incorrect 'at-risk' decisions, whereas `gamma0` specifies the threshold for incorrect 'not-at-risk' decisions. Thus, if we want to increase sensitivity, we should increase `gamma0`:
 
 ``` r
 tmp4 <- stochCurtail(itemscores[1:500, ], dataset.test = itemscores[501:1000,], 
@@ -176,7 +178,7 @@ tmp4 <- stochCurtail(itemscores[1:500, ], dataset.test = itemscores[501:1000,],
 #> specificity =  0.9893333
 ```
 
-Alternatively, if we want to increase specificity, we should increase gamma1:
+Alternatively, if we want to increase specificity, we should increase `gamma1`:
 
 ``` r
 tmp5 <- stochCurtail(itemscores[1:500, ], dataset.test = itemscores[501:1000,], 
@@ -191,34 +193,15 @@ tmp5 <- stochCurtail(itemscores[1:500, ], dataset.test = itemscores[501:1000,],
 #> specificity =  0.9973333
 ```
 
-Perhaps we want to inspect test length distributions for at-risk observations separately:
+Perhaps we want to inspect test length distributions for not-at-risk observations separately:
 
 ``` r
-hist(tmp3$test.results$current.item[tmp2$test.results$curtailed.decision == "at risk"], 
+hist(tmp5$test.results$current.item[tmp5$test.results$curtailed.decision == "not at risk"], 
      xlab = "Number of items administered", 
      main = "Test lengths for at-risk observations")
 ```
 
 ![](inst/README-figures/README-unnamed-chunk-14-1.png)
-
-If we want to obtain tables with item-specific cutoff values, we can use the `Table` function (for deterministic curtailment):
-
-``` r
-Table(itemscores, Xstar = 17)
-#>         item1 item2 item3 item4 item5 item6 item7 item8 item9 item10
-#> no.risk    NA    NA    NA    NA    NA    NA    NA    NA    NA     NA
-#> risk       NA    NA    NA    NA    NA    17    17    17    17     17
-#>         item11 item12 item13 item14 item15 item16 item17 item18 item19
-#> no.risk     NA     NA     NA     NA      1      4      7     10     13
-#> risk        17     17     17     17     17     17     17     17     17
-#>         item20
-#> no.risk     16
-#> risk        17
-```
-
-Values NA indicate that curtailment is not yet possible for that item and decision. For stochastic curtailment, we can employ the `stochTable` function:
-
-Here we see that stochastic curtailment allows for earlier stopping of item administration than deterministic curtailment.
 
 Leave-one-out cross validation
 ------------------------------
@@ -229,7 +212,7 @@ Above, we performed 1-fold cross validation for stochastic curtailment, by speci
 stochCurtailXval(itemscores[1:100,], Xstar = 17)
 ```
 
-![](inst/README-figures/README-unnamed-chunk-16-1.png)
+![](inst/README-figures/README-unnamed-chunk-15-1.png)
 
     #>              full length
     #> curtailed     at risk not at risk
