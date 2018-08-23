@@ -95,7 +95,7 @@ We see that sensitivity is more strongly affected than specificity by lowering t
 prop.table(table(rowSums(itemscores) >= 17))
 ```
 
-If the 'at-risk' class would have been more prevalent, then lowering both gamma values would have more strongly affected specificity. Note that ```gamma1``` specifies the threshold for incorrect 'at-risk' decisions, whereas ```gamma0``` specifies the threshold for incorrect 'not-at-risk' decisions. Thus, if we want to increase sensitivity, we should increase ```gamma0```:
+If the 'at-risk' class would have been more prevalent, then lowering both gamma values would have more strongly affected specificity. Note that ```gamma1``` specifies the threshold for correct 'at-risk' decisions, whereas ```gamma0``` specifies the threshold for correct 'not-at-risk' decisions. Thus, if we want to increase sensitivity, we should increase ```gamma0```:
 
 ```{r}
 tmp4 <- stochCurtail(itemscores[1:500, ], dataset.test = itemscores[501:1000,], 
