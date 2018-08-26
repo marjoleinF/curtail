@@ -17,12 +17,22 @@ knitr::opts_chunk$set(
 
 A curtailed test is a variable-length test, which allows for early stopping of item administration when further items are unlikely or unable to change the final (classification) decision. Package curtail allows for creating and assessing deterministically and stochastically (based on empirical proportions) curtailed tests.
 
-To get a first impression of how curtail works, we take a dataset of item scores on a 20-item test:
+The package can be installed as follows:
+
+```{r, eval=FALSE}
+library("devtools")
+install_github("marjoleinF/curtail")
+```
+
+To get a first impression of how curtail works, we take the ```itemscores``` dataset, which is an example dataset of 1,000 response patterns to a 20-item test included in the package:
 
 ```{r, results = FALSE}
 library(curtail)
-head(itemscores)
+summary(itemscores)
 ```
+
+All 20 items are scores on a scale from 0-3.
+
 
 ## Deterministic curtailment
 

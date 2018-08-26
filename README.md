@@ -3,12 +3,21 @@ curtail: an R package for test curtailment
 
 A curtailed test is a variable-length test, which allows for early stopping of item administration when further items are unlikely or unable to change the final (classification) decision. Package curtail allows for creating and assessing deterministically and stochastically (based on empirical proportions) curtailed tests.
 
-To get a first impression of how curtail works, we take a dataset of item scores on a 20-item test:
+The package can be installed as follows:
+
+``` r
+library("devtools")
+install_github("marjoleinF/curtail")
+```
+
+To get a first impression of how curtail works, we take the `itemscores` dataset, which is an example dataset of 1,000 response patterns to a 20-item test included in the package:
 
 ``` r
 library(curtail)
-head(itemscores)
+summary(itemscores)
 ```
+
+All 20 items are scores on a scale from 0-3.
 
 Deterministic curtailment
 -------------------------
@@ -27,7 +36,7 @@ tmp1 <- Curtail(itemscores[501:1000, ], Xstar = 17)
 #> specificity =  1
 ```
 
-![](inst/README-figures/README-unnamed-chunk-3-1.png)
+![](inst/README-figures/README-unnamed-chunk-4-1.png)
 
 The results show the number of observations flagged as 'at risk' or 'not at risk', according to the curtailed and full-length test administration. Also, the number of items administrered is depicted in a histogram. No classification errors with respect to the full-length test decesion are made, as is always the case with detereministic curtailment.
 
@@ -85,7 +94,7 @@ tmp2 <- stochCurtail(itemscores[1:500,], dataset.test = itemscores[501:1000,],
 #> specificity =  1
 ```
 
-![](inst/README-figures/README-unnamed-chunk-6-1.png)
+![](inst/README-figures/README-unnamed-chunk-7-1.png)
 
 ``` r
 tmp2$curtailed.test.length.distribution
@@ -163,7 +172,7 @@ prop.table(table(rowSums(itemscores) >= 17))
 #> 0.702 0.298
 ```
 
-If the 'at-risk' class would have been more prevalent, then lowering both gamma values would have more strongly affected specificity. Note that `gamma1` specifies the threshold for incorrect 'at-risk' decisions, whereas `gamma0` specifies the threshold for incorrect 'not-at-risk' decisions. Thus, if we want to increase sensitivity, we should increase `gamma0`:
+If the 'at-risk' class would have been more prevalent, then lowering both gamma values would have more strongly affected specificity. Note that `gamma1` specifies the threshold for correct 'at-risk' decisions, whereas `gamma0` specifies the threshold for correct 'not-at-risk' decisions. Thus, if we want to increase sensitivity, we should increase `gamma0`:
 
 ``` r
 tmp4 <- stochCurtail(itemscores[1:500, ], dataset.test = itemscores[501:1000,], 
@@ -201,7 +210,7 @@ hist(tmp5$test.results$current.item[tmp5$test.results$curtailed.decision == "not
      main = "Test lengths for at-risk observations")
 ```
 
-![](inst/README-figures/README-unnamed-chunk-14-1.png)
+![](inst/README-figures/README-unnamed-chunk-15-1.png)
 
 Leave-one-out cross validation
 ------------------------------
@@ -212,7 +221,7 @@ Above, we performed 1-fold cross validation for stochastic curtailment, by speci
 stochCurtailXval(itemscores[1:100,], Xstar = 17)
 ```
 
-![](inst/README-figures/README-unnamed-chunk-15-1.png)
+![](inst/README-figures/README-unnamed-chunk-16-1.png)
 
     #>              full length
     #> curtailed     at risk not at risk
